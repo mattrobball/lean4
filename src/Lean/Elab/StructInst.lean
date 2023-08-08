@@ -624,10 +624,10 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
           -- if a user provided structure instance has desired type then use it
           let inst ← providedExprs.filterMapM fun expr => do
             let type ← inferType expr
-            if (← isDefEq type d) then return some expr
-            else return none
+            if (← isDefEq type d) && s.allDefault then return some expr
+              else return none
           if let some expr := inst[0]? then
-            cont expr { field with val := FieldVal.term (mkHole field.ref) }
+              cont expr { field with val := FieldVal.term (mkHole field.ref) }
           else
           -- if all fields of `s` are marked as `default`, then try to synthesize instance
           match (← trySynthStructInstance? s d) with
