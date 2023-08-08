@@ -291,7 +291,7 @@ partial def formatStruct : Struct → Format
     else
       "{" ++ format (source.explicit.map (·.stx)) ++ " with " ++ fieldsFmt ++ implicitFmt ++ "}"
 
-instance : ToFormat Struct     := ⟨formatStruct⟩
+instance : ToFormat Struct := ⟨formatStruct⟩
 instance : ToString Struct := ⟨toString ∘ format⟩
 
 instance : ToFormat (Field Struct) := ⟨formatField formatStruct⟩
@@ -313,7 +313,7 @@ def FieldLHS.toSyntax (first : Bool) : FieldLHS → Syntax
 
 def FieldVal.toSyntax : FieldVal Struct → Syntax
   | .term stx => stx
-  | _                 => unreachable!
+  | _         => unreachable!
 
 def Field.toSyntax : Field Struct → Syntax
   | field =>
@@ -601,6 +601,8 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
     throwError "invalid \{...} notation, constructor for `{s.structName}` is marked as private"
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
+  -- We elaborate the user provided structure instances
+  let provided ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
     match field.lhs with
     | [.fieldName ref fieldName] =>
@@ -618,6 +620,12 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
+          -- check if one of the user provided structure instances has the the correct
+          -- type for the field and if so slot it in
+          let matched ← provided.filterM (fun expr => isDefEq expr d)
+          if !matched.isEmpty then
+            cont matched[0]! { field with val := FieldVal.term (mkHole field.ref) }
+          else
           -- if all fields of `s` are marked as `default`, then try to synthesize instance
           match (← trySynthStructInstance? s d) with
           | some val => cont val { field with val := FieldVal.term (mkHole field.ref) }
