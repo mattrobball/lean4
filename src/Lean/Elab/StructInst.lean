@@ -621,7 +621,8 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
-          -- if a user provided structure instance has desired type then use it
+          -- if a user provided structure instance has desired type then use it assuming
+          -- no other fields of the structure are specified
           let inst ← providedExprs.filterMapM fun expr => do
             let type ← inferType expr
             if (← isDefEq type d) && s.allDefault then return some expr
