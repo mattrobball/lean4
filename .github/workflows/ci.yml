@@ -280,6 +280,8 @@ jobs:
         with:
           files: artifacts/*/*
           fail_on_unmatched_files: true
+        permissions:
+          contents: write
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
