@@ -11,6 +11,9 @@ on:
   schedule:
     - cron: '0 7 * * *'  # 8AM CET/11PM PT
 
+permissions:
+  contents: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
@@ -280,8 +283,6 @@ jobs:
         with:
           files: artifacts/*/*
           fail_on_unmatched_files: true
-        permissions:
-          contents: write
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
