@@ -602,7 +602,8 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
   -- We elaborate the user provided structure instances
-  let provided ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
+  let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
+  -- let providesExprsWithTypes ← providedExprs.mapM (fun expr => Prod.mk expr (inferType expr))
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
     match field.lhs with
     | [.fieldName ref fieldName] =>
@@ -620,11 +621,13 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
-          -- check if one of the user provided structure instances has the the correct
-          -- type for the field and if so slot it in
-          let matched ← provided.filterM (fun expr => isDefEq expr d)
-          if !matched.isEmpty then
-            cont matched[0]! { field with val := FieldVal.term (mkHole field.ref) }
+          -- if a user provided structure instance has desired type then use it
+          let inst ← providedExprs.filterMapM fun expr => do
+            let type ← inferType expr
+            if (← isDefEq type d) then return some expr
+            else return none
+          if let some expr := inst[0]? then
+            cont expr { field with val := FieldVal.term (mkHole field.ref) }
           else
           -- if all fields of `s` are marked as `default`, then try to synthesize instance
           match (← trySynthStructInstance? s d) with
