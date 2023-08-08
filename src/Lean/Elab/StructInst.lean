@@ -601,7 +601,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
     throwError "invalid \{...} notation, constructor for `{s.structName}` is marked as private"
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
-  -- We elaborate the user provided structure instances
+  -- We elaborate the user provided structure instances for use below
   let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
   -- let providesExprsWithTypes ← providedExprs.mapM (fun expr => Prod.mk expr (inferType expr))
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
