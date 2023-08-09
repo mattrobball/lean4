@@ -83,12 +83,12 @@ where
 structure ExplicitSourceInfo where
   stx        : Syntax
   structName : Name
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 structure Source where
   explicit : Array ExplicitSourceInfo -- `s₁ ... sₙ with`
   implicit : Option Syntax -- `..`
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 def Source.isNone : Source → Bool
   | { explicit := #[], implicit := none } => true
@@ -387,6 +387,25 @@ private def expandNumLitFields (s : Struct) : TermElabM Struct :=
         else return { field with lhs := .fieldName ref fieldNames[idx - 1]! :: rest }
       | _ => return field
 
+def Struct.modifyReduce (s : Struct) : TermElabM Struct := do
+  s.source.explicit.foldlM (init := s) fun struct src => match s with
+    | ⟨ref, structName, params, fields, source⟩ => do
+      let tested : List <| Field Struct × Bool ← fields.mapM fun field => do
+        try
+          let type ← elabType field.ref
+          let type' ← elabType src.stx
+          if (← isDefEq type type') then
+            let expr ← elabTermEnsuringType src.stx type
+            return ⟨{field with expr? := some expr}, true⟩
+          else return ⟨field, false⟩
+        catch _ => return ⟨field, false⟩
+      let changed := tested.map (·.2) |>.foldl (· || ·) false
+      if changed then
+        let newFields := tested.map (·.1)
+        let newSource := {source with explicit := source.explicit.erase src}
+        return ⟨ref, structName, params, newFields, newSource⟩
+      else return struct
+
 /-- For example, consider the following structures:
    ```
    structure A where
@@ -595,6 +614,7 @@ structure ElabStructResult where
   instMVars : Array MVarId
 
 private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : TermElabM ElabStructResult := withRef s.ref do
+  let s ← s.modifyReduce
   let env ← getEnv
   let ctorVal := getStructureCtor env s.structName
   if isPrivateNameFromImportedModule env ctorVal.name then
@@ -602,7 +622,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
   -- We elaborate the user provided structure instances for use below
-  let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
+  -- let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
   -- let providesExprsWithTypes ← providedExprs.mapM (fun expr => Prod.mk expr (inferType expr))
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
     match field.lhs with
@@ -623,13 +643,13 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
         | .nested s =>
           -- if a user provided structure instance has desired type then use it assuming
           -- no other fields of the structure are specified
-          let inst ← providedExprs.filterMapM fun expr => do
-            let type ← inferType expr
-            if (← isDefEq type d) && s.allDefault then return some expr
-              else return none
-          if let some expr := inst[0]? then
-              cont expr { field with val := FieldVal.term (mkHole field.ref) }
-          else
+          -- let inst ← providedExprs.filterMapM fun expr => do
+          --   let type ← inferType expr
+          --   if (← isDefEq type d) && s.allDefault then return some expr
+          --     else return none
+          -- if let some expr := inst[0]? then
+          --     cont expr { field with val := FieldVal.term (mkHole field.ref) }
+          -- else
           -- if all fields of `s` are marked as `default`, then try to synthesize instance
           match (← trySynthStructInstance? s d) with
           | some val => cont val { field with val := FieldVal.term (mkHole field.ref) }
