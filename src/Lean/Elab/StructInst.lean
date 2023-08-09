@@ -614,7 +614,6 @@ structure ElabStructResult where
   instMVars : Array MVarId
 
 private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : TermElabM ElabStructResult := withRef s.ref do
-  let s ← s.modifyReduce
   let env ← getEnv
   let ctorVal := getStructureCtor env s.structName
   if isPrivateNameFromImportedModule env ctorVal.name then
@@ -910,6 +909,7 @@ private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (sour
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
   let struct ← expandStruct struct
+  let struct ← struct.modifyReduce
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
      This is important in examples such as
