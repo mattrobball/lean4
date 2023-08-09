@@ -387,24 +387,24 @@ private def expandNumLitFields (s : Struct) : TermElabM Struct :=
         else return { field with lhs := .fieldName ref fieldNames[idx - 1]! :: rest }
       | _ => return field
 
-def Struct.modifyReduce (s : Struct) : TermElabM Struct := do
-  s.source.explicit.foldlM (init := s) fun struct src => match s with
-    | ⟨ref, structName, params, fields, source⟩ => do
-      let tested : List <| Field Struct × Bool ← fields.mapM fun field => do
-        try
-          let type ← elabType field.ref
-          let type' ← elabType src.stx
-          if (← isDefEq type type') then
-            let expr ← elabTermEnsuringType src.stx type
-            return ⟨{field with expr? := some expr}, true⟩
-          else return ⟨field, false⟩
-        catch _ => return ⟨field, false⟩
-      let changed := tested.map (·.2) |>.foldl (· || ·) false
-      if changed then
-        let newFields := tested.map (·.1)
-        let newSource := {source with explicit := source.explicit.erase src}
-        return ⟨ref, structName, params, newFields, newSource⟩
-      else return struct
+-- def Struct.modifyReduce (s : Struct) : TermElabM Struct := do
+--   s.source.explicit.foldlM (init := s) fun struct src => match s with
+--     | ⟨ref, structName, params, fields, source⟩ => do
+--       let tested : List <| Field Struct × Bool ← fields.mapM fun field => do
+--         try
+--           let type ← elabType field.ref
+--           let type' ← elabType src.stx
+--           if (← isDefEq type type') then
+--             let expr ← elabTermEnsuringType src.stx type
+--             return ⟨{field with expr? := some expr}, true⟩
+--           else return ⟨field, false⟩
+--         catch _ => return ⟨field, false⟩
+--       let changed := tested.map (·.2) |>.foldl (· || ·) false
+--       if changed then
+--         let newFields := tested.map (·.1)
+--         let newSource := {source with explicit := source.explicit.erase src}
+--         return ⟨ref, structName, params, newFields, newSource⟩
+--       else return struct
 
 /-- For example, consider the following structures:
    ```
@@ -635,7 +635,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
             projName := s.structName.append fieldName, fieldName, lctx := (← getLCtx), val, stx := ref }
           let e     := mkApp e val
           let type  := b.instantiate1 val
-          let field := { field with expr? := some val }
+          let field := { field with expr? := some (← zetaReduce val) }
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
@@ -908,7 +908,7 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
-  let struct ← struct.modifyReduce
+  -- let struct ← struct.modifyReduce
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
