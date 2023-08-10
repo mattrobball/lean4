@@ -613,8 +613,82 @@ structure ElabStructResult where
   struct    : Struct
   instMVars : Array MVarId
 
-def etaReduceAll (e : Expr) : MetaM Expr := do
-  transform e fun node => pure <| .continue node.etaExpanded?
+def getProjectedExpr (e : Expr) : MetaM (Option (Name × Nat × Expr)) := do
+  if let .proj S i x := e then
+    return (S, i, x)
+  if let .const fn _ := e.getAppFn then
+    if let some info ← getProjectionFnInfo? fn then
+      if e.getAppNumArgs == info.numParams + 1 then
+        if let some (ConstantInfo.ctorInfo fVal) := (← getEnv).find? info.ctorName then
+          return (fVal.induct, info.i, e.appArg!)
+  return none
+
+def etaStruct? (e : Expr) (tryWhnfR : Bool := true) : MetaM (Option Expr) := do
+  let .const f _ := e.getAppFn | return none
+  let some (ConstantInfo.ctorInfo fVal) := (← getEnv).find? f | return none
+  unless 0 < fVal.numFields && e.getAppNumArgs == fVal.numParams + fVal.numFields do return none
+  unless isStructureLike (← getEnv) fVal.induct do return none
+  let args := e.getAppArgs
+  let mut x? ← findProj fVal args pure
+  if tryWhnfR then
+    if let .undef := x? then
+      x? ← findProj fVal args whnfR
+  if let .some x := x? then
+    -- Rely on eta for structures to make the check:
+    if ← isDefEq x e then
+      return x
+  return none
+where
+  findProj (fVal : ConstructorVal) (args : Array Expr) (m : Expr → MetaM Expr) :
+      MetaM (LOption Expr) := do
+    for i in [0 : fVal.numFields] do
+      let arg ← m args[fVal.numParams + i]!
+      let some (S, j, x) ← getProjectedExpr arg | continue
+      if S == fVal.induct && i == j then
+        return .some x
+      else
+        -- Then the eta rule can't apply since there's an obviously wrong projection
+        return .none
+    return .undef
+
+/-- Finds all occurrences of expressions of the form `S.mk x.1 ... x.n` where `S.mk`
+is a structure constructor and replaces them by `x`.
+-/
+def etaStructAll (e : Expr) : MetaM Expr :=
+  transform e fun node => do
+    if let some node' ← etaStruct? node then
+      return .visit node'
+    else
+      return .continue
+
+-- open Expr in
+-- partial def headStructureEtaReduce (e : Expr) : MetaM Expr := do
+--   let env ← getEnv
+--   let (ctor, args) := e.getAppFnArgs
+--   let some (.ctorInfo { induct := struct, numParams, ..}) := env.find? ctor | pure e
+--   let some { fieldNames, .. } := getStructureInfo? env struct | pure e
+--   let (params, fields) := args.toList.splitAt numParams -- fix if `Array.take` / `Array.drop` exist
+--   trace[simps.debug]
+--     "rhs is constructor application with params{indentD params}\nand fields {indentD fields}"
+--   let field0 :: fieldsTail := fields | return e
+--   let fieldName0 :: fieldNamesTail := fieldNames.toList | return e
+--   let (fn0, fieldArgs0) := field0.getAppFnArgs
+--   unless fn0 == struct ++ fieldName0 do
+--     trace[simps.debug] "{fn0} ≠ {struct ++ fieldName0}"
+--     return e
+--   let (params', reduct :: _) := fieldArgs0.toList.splitAt numParams | unreachable!
+--   unless params' == params do
+--     trace[simps.debug] "{params'} ≠ {params}"
+--     return e
+--   trace[simps.debug] "Potential structure-eta-reduct:{indentExpr e}\nto{indentExpr reduct}"
+--   let allArgs := params.toArray.push reduct
+--   let isEta ← (fieldsTail.zip fieldNamesTail).allM fun (field, fieldName) ↦
+--     if field.getAppFnArgs == (struct ++ fieldName, allArgs) then pure true else isProof field
+--   unless isEta do return e
+--   trace[simps.debug] "Structure-eta-reduce:{indentExpr e}\nto{indentExpr reduct}"
+--   headStructureEtaReduce reduct
+-- def etaReduceAll (e : Expr) : MetaM Expr := do
+--   transform e fun node => pure <| .continue node.etaExpanded?
 
 private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : TermElabM ElabStructResult := withRef s.ref do
   let env ← getEnv
@@ -639,7 +713,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
           let e     := mkApp e val
           let type  := b.instantiate1 val
           -- let field := { field with expr? := some val }
-          let field := { field with expr? := some (← etaReduceAll (← zetaReduce val)) }
+          let field := { field with expr? := some (← etaStructAll (← zetaReduce val)) }
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx =>
