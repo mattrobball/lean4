@@ -635,7 +635,8 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
             projName := s.structName.append fieldName, fieldName, lctx := (← getLCtx), val, stx := ref }
           let e     := mkApp e val
           let type  := b.instantiate1 val
-          let field := { field with expr? := some (← zetaReduce val) }
+          let field := { field with expr? := some val }
+          -- let field := { field with expr? := some (← zetaReduce val) }
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx =>
