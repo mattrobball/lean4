@@ -621,7 +621,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
   -- We elaborate the user provided structure instances for use below
-  -- let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
+  let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
   -- let providesExprsWithTypes ← providedExprs.mapM (fun expr => Prod.mk expr (inferType expr))
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
     match field.lhs with
@@ -638,7 +638,15 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
           let field := { field with expr? := some (← zetaReduce val) }
           return (e, type, field::fields, instMVars)
         match field.val with
-        | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
+        | .term stx =>
+          let exprs ← providedExprs.filterMapM fun expr => do
+            let type ← inferType expr
+            if (← isDefEq type d.consumeTypeAnnotations) then return some expr
+              else return none
+          if let some expr := exprs[0]? then
+            cont expr field
+          else
+            cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
           -- if a user provided structure instance has desired type then use it assuming
           -- no other fields of the structure are specified
