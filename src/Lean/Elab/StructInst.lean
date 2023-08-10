@@ -714,6 +714,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
           let type  := b.instantiate1 val
           -- let field := { field with expr? := some val }
           let field := { field with expr? := some (← etaStructAll (← zetaReduce val)) }
+          let e ← zetaReduce e
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx =>
