@@ -613,6 +613,9 @@ structure ElabStructResult where
   struct    : Struct
   instMVars : Array MVarId
 
+def etaReduceAll (e : Expr) : MetaM Expr := do
+  transform e fun node => pure <| .continue node.etaExpanded?
+
 private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : TermElabM ElabStructResult := withRef s.ref do
   let env ← getEnv
   let ctorVal := getStructureCtor env s.structName
@@ -635,18 +638,18 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
             projName := s.structName.append fieldName, fieldName, lctx := (← getLCtx), val, stx := ref }
           let e     := mkApp e val
           let type  := b.instantiate1 val
-          let field := { field with expr? := some val }
-          -- let field := { field with expr? := some (← zetaReduce val) }
+          -- let field := { field with expr? := some val }
+          let field := { field with expr? := some (← etaReduceAll (← zetaReduce val)) }
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx =>
-          let exprs ← providedExprs.filterMapM fun expr => do
-            let type ← inferType expr
-            if (← isDefEq type d.consumeTypeAnnotations) then return some expr
-              else return none
-          if let some expr := exprs[0]? then
-            cont expr field
-          else
+          -- let exprs ← providedExprs.filterMapM fun expr => do
+          --   let type ← inferType expr
+          --   if (← isDefEq type d.consumeTypeAnnotations) then return some expr
+          --     else return none
+          -- if let some expr := exprs[0]? then
+          --   cont expr field
+          -- else
             cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
           -- if a user provided structure instance has desired type then use it assuming
