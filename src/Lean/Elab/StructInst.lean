@@ -83,12 +83,12 @@ where
 structure ExplicitSourceInfo where
   stx        : Syntax
   structName : Name
-  deriving Inhabited, BEq
+  deriving Inhabited
 
 structure Source where
   explicit : Array ExplicitSourceInfo -- `s₁ ... sₙ with`
   implicit : Option Syntax -- `..`
-  deriving Inhabited, BEq
+  deriving Inhabited
 
 def Source.isNone : Source → Bool
   | { explicit := #[], implicit := none } => true
@@ -291,7 +291,7 @@ partial def formatStruct : Struct → Format
     else
       "{" ++ format (source.explicit.map (·.stx)) ++ " with " ++ fieldsFmt ++ implicitFmt ++ "}"
 
-instance : ToFormat Struct := ⟨formatStruct⟩
+instance : ToFormat Struct     := ⟨formatStruct⟩
 instance : ToString Struct := ⟨toString ∘ format⟩
 
 instance : ToFormat (Field Struct) := ⟨formatField formatStruct⟩
@@ -313,7 +313,7 @@ def FieldLHS.toSyntax (first : Bool) : FieldLHS → Syntax
 
 def FieldVal.toSyntax : FieldVal Struct → Syntax
   | .term stx => stx
-  | _         => unreachable!
+  | _                 => unreachable!
 
 def Field.toSyntax : Field Struct → Syntax
   | field =>
@@ -387,25 +387,6 @@ private def expandNumLitFields (s : Struct) : TermElabM Struct :=
         else return { field with lhs := .fieldName ref fieldNames[idx - 1]! :: rest }
       | _ => return field
 
--- def Struct.modifyReduce (s : Struct) : TermElabM Struct := do
---   s.source.explicit.foldlM (init := s) fun struct src => match s with
---     | ⟨ref, structName, params, fields, source⟩ => do
---       let tested : List <| Field Struct × Bool ← fields.mapM fun field => do
---         try
---           let type ← elabType field.ref
---           let type' ← elabType src.stx
---           if (← isDefEq type type') then
---             let expr ← elabTermEnsuringType src.stx type
---             return ⟨{field with expr? := some expr}, true⟩
---           else return ⟨field, false⟩
---         catch _ => return ⟨field, false⟩
---       let changed := tested.map (·.2) |>.foldl (· || ·) false
---       if changed then
---         let newFields := tested.map (·.1)
---         let newSource := {source with explicit := source.explicit.erase src}
---         return ⟨ref, structName, params, newFields, newSource⟩
---       else return struct
-
 /-- For example, consider the following structures:
    ```
    structure A where
@@ -474,6 +455,12 @@ def mkProjStx? (s : Syntax) (structName : Name) (fieldName : Name) : TermElabM (
     return none
   return some <| mkNode ``Parser.Term.proj #[s, mkAtomFrom s ".", mkIdentFrom s fieldName]
 
+def mkDirectParentProjStx? (s : Syntax) (structName subStructName : Name) : TermElabM <| Option Syntax := do
+  let parentProjs := getParentStructures (← getEnv) structName
+  if (parentProjs.filter (fun name => name == subStructName)).isEmpty then
+    return none
+  else return some s
+
 def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
   fields.find? fun field =>
     match field.lhs with
@@ -522,7 +509,10 @@ mutual
         | none       =>
           let addField (val : FieldVal Struct) : TermElabM Fields := do
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
-          match Lean.isSubobjectField? env s.structName fieldName with
+          -- If src is term for a parent field, put in directly
+          if let some val ← s.source.explicit.findSomeM? fun source => mkDirectParentProjStx? source.stx s.structName source.structName then
+              addField (FieldVal.term val)
+          else match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If one of the sources has the subobject field, use it
             if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
@@ -613,83 +603,6 @@ structure ElabStructResult where
   struct    : Struct
   instMVars : Array MVarId
 
-def getProjectedExpr (e : Expr) : MetaM (Option (Name × Nat × Expr)) := do
-  if let .proj S i x := e then
-    return (S, i, x)
-  if let .const fn _ := e.getAppFn then
-    if let some info ← getProjectionFnInfo? fn then
-      if e.getAppNumArgs == info.numParams + 1 then
-        if let some (ConstantInfo.ctorInfo fVal) := (← getEnv).find? info.ctorName then
-          return (fVal.induct, info.i, e.appArg!)
-  return none
-
-def etaStruct? (e : Expr) (tryWhnfR : Bool := true) : MetaM (Option Expr) := do
-  let .const f _ := e.getAppFn | return none
-  let some (ConstantInfo.ctorInfo fVal) := (← getEnv).find? f | return none
-  unless 0 < fVal.numFields && e.getAppNumArgs == fVal.numParams + fVal.numFields do return none
-  unless isStructureLike (← getEnv) fVal.induct do return none
-  let args := e.getAppArgs
-  let mut x? ← findProj fVal args pure
-  if tryWhnfR then
-    if let .undef := x? then
-      x? ← findProj fVal args whnfR
-  if let .some x := x? then
-    -- Rely on eta for structures to make the check:
-    if ← isDefEq x e then
-      return x
-  return none
-where
-  findProj (fVal : ConstructorVal) (args : Array Expr) (m : Expr → MetaM Expr) :
-      MetaM (LOption Expr) := do
-    for i in [0 : fVal.numFields] do
-      let arg ← m args[fVal.numParams + i]!
-      let some (S, j, x) ← getProjectedExpr arg | continue
-      if S == fVal.induct && i == j then
-        return .some x
-      else
-        -- Then the eta rule can't apply since there's an obviously wrong projection
-        return .none
-    return .undef
-
-/-- Finds all occurrences of expressions of the form `S.mk x.1 ... x.n` where `S.mk`
-is a structure constructor and replaces them by `x`.
--/
-def etaStructAll (e : Expr) : MetaM Expr :=
-  transform e fun node => do
-    if let some node' ← etaStruct? node then
-      return .visit node'
-    else
-      return .continue
-
--- open Expr in
--- partial def headStructureEtaReduce (e : Expr) : MetaM Expr := do
---   let env ← getEnv
---   let (ctor, args) := e.getAppFnArgs
---   let some (.ctorInfo { induct := struct, numParams, ..}) := env.find? ctor | pure e
---   let some { fieldNames, .. } := getStructureInfo? env struct | pure e
---   let (params, fields) := args.toList.splitAt numParams -- fix if `Array.take` / `Array.drop` exist
---   trace[simps.debug]
---     "rhs is constructor application with params{indentD params}\nand fields {indentD fields}"
---   let field0 :: fieldsTail := fields | return e
---   let fieldName0 :: fieldNamesTail := fieldNames.toList | return e
---   let (fn0, fieldArgs0) := field0.getAppFnArgs
---   unless fn0 == struct ++ fieldName0 do
---     trace[simps.debug] "{fn0} ≠ {struct ++ fieldName0}"
---     return e
---   let (params', reduct :: _) := fieldArgs0.toList.splitAt numParams | unreachable!
---   unless params' == params do
---     trace[simps.debug] "{params'} ≠ {params}"
---     return e
---   trace[simps.debug] "Potential structure-eta-reduct:{indentExpr e}\nto{indentExpr reduct}"
---   let allArgs := params.toArray.push reduct
---   let isEta ← (fieldsTail.zip fieldNamesTail).allM fun (field, fieldName) ↦
---     if field.getAppFnArgs == (struct ++ fieldName, allArgs) then pure true else isProof field
---   unless isEta do return e
---   trace[simps.debug] "Structure-eta-reduce:{indentExpr e}\nto{indentExpr reduct}"
---   headStructureEtaReduce reduct
--- def etaReduceAll (e : Expr) : MetaM Expr := do
---   transform e fun node => pure <| .continue node.etaExpanded?
-
 private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : TermElabM ElabStructResult := withRef s.ref do
   let env ← getEnv
   let ctorVal := getStructureCtor env s.structName
@@ -697,9 +610,6 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
     throwError "invalid \{...} notation, constructor for `{s.structName}` is marked as private"
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
-  -- We elaborate the user provided structure instances for use below
-  -- let providedExprs ← s.source.explicit.map (·.stx)|>.mapM (fun stx => elabTerm stx none)
-  -- let providesExprsWithTypes ← providedExprs.mapM (fun expr => Prod.mk expr (inferType expr))
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
     match field.lhs with
     | [.fieldName ref fieldName] =>
@@ -712,30 +622,11 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
             projName := s.structName.append fieldName, fieldName, lctx := (← getLCtx), val, stx := ref }
           let e     := mkApp e val
           let type  := b.instantiate1 val
-          -- let field := { field with expr? := some val }
-          let field := { field with expr? := some (← etaStructAll (← zetaReduce val)) }
-          let e ← zetaReduce e
+          let field := { field with expr? := some val }
           return (e, type, field::fields, instMVars)
         match field.val with
-        | .term stx =>
-          -- let exprs ← providedExprs.filterMapM fun expr => do
-          --   let type ← inferType expr
-          --   if (← isDefEq type d.consumeTypeAnnotations) then return some expr
-          --     else return none
-          -- if let some expr := exprs[0]? then
-          --   cont expr field
-          -- else
-            cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
+        | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
-          -- if a user provided structure instance has desired type then use it assuming
-          -- no other fields of the structure are specified
-          -- let inst ← providedExprs.filterMapM fun expr => do
-          --   let type ← inferType expr
-          --   if (← isDefEq type d) && s.allDefault then return some expr
-          --     else return none
-          -- if let some expr := inst[0]? then
-          --     cont expr { field with val := FieldVal.term (mkHole field.ref) }
-          -- else
           -- if all fields of `s` are marked as `default`, then try to synthesize instance
           match (← trySynthStructInstance? s d) with
           | some val => cont val { field with val := FieldVal.term (mkHole field.ref) }
@@ -995,7 +886,6 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
-  -- let struct ← struct.modifyReduce
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
