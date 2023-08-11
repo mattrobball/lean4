@@ -8,12 +8,37 @@ import Lean.Parser.Term
 import Lean.Meta.Structure
 import Lean.Elab.App
 import Lean.Elab.Binders
+import Lean.Elab.ElabRules
+open Lean Elab Parser Term Meta Macro
 
 namespace Lean.Elab.Term.StructInst
 
 open Meta
 open TSyntax.Compat
 
+/-- `letI` behaves like `let`, but inlines the value instead of producing a `let_fun` term. -/
+@[term_parser] def «letI» := leading_parser
+  withPosition ("letI " >> haveDecl) >> optSemicolon termParser
+
+macro_rules
+  -- | `(letI $hy:hygieneInfo $bs* $[: $ty]? := $val; $body) =>
+  --   `(letI $(HygieneInfo.mkIdent hy `this (canonical := true)) $bs* $[: $ty]? := $val; $body)
+  | `(letI _ $bs* := $val; $body) => `(letI x $bs* : _ := $val; $body)
+  | `(letI _ $bs* : $ty := $val; $body) => `(letI x $bs* : $ty := $val; $body)
+  | `(letI $x:ident $bs* := $val; $body) => `(letI $x $bs* : _ := $val; $body)
+  | `(letI $_:ident $_* : $_ := $_; $_) => throwUnsupported -- handled by elab
+
+elab_rules <= expectedType
+  | `(letI $x:ident $bs* : $ty := $val; $body) => do
+    let (ty, val) ← elabBinders bs fun bs => do
+      let ty ← elabType ty
+      let val ← elabTermEnsuringType val ty
+      pure (← mkForallFVars bs ty, ← mkLambdaFVars bs val)
+    withLetDecl x.getId ty val fun x => do
+      return (← (← elabTerm body expectedType).abstractM #[x]).instantiate #[val]
+
+/-- `letI` behaves like `let`, but inlines the value instead of producing a `let_fun` term. -/
+macro "letI" d:haveDecl : tactic => `(tactic| refine_lift letI $d:haveDecl; ?_)
 /-
   Structure instances are of the form:
 
@@ -78,7 +103,7 @@ where
         withFreshMacroScope do
           let sourceNew ← `(src)
           let r ← go sources (sourcesNew.push sourceNew)
-          `(let src := $source; $r)
+          `(letI src := $source; $r)
 
 structure ExplicitSourceInfo where
   stx        : Syntax
