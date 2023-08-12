@@ -669,7 +669,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
               cont (markDefaultMissing val) field
       | _ => withRef field.ref <| throwFailedToElabField fieldName s.structName m!"unexpected constructor type{indentExpr type}"
     | _ => throwErrorAt field.ref "unexpected unexpanded structure field"
-  return { val := e, struct := s.setFields fields.reverse |>.setParams params, instMVars }
+  return { val := (← zetaReduce e), struct := s.setFields fields.reverse |>.setParams params, instMVars }
 
 namespace DefaultFields
 
