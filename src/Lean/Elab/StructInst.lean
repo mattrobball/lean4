@@ -16,29 +16,6 @@ namespace Lean.Elab.Term.StructInst
 open Meta
 open TSyntax.Compat
 
-/-- `letI` behaves like `let`, but inlines the value instead of producing a `let_fun` term. -/
-@[term_parser] def «letI» := leading_parser
-  withPosition ("letI " >> haveDecl) >> optSemicolon termParser
-
-macro_rules
-  -- | `(letI $hy:hygieneInfo $bs* $[: $ty]? := $val; $body) =>
-  --   `(letI $(HygieneInfo.mkIdent hy `this (canonical := true)) $bs* $[: $ty]? := $val; $body)
-  | `(letI _ $bs* := $val; $body) => `(letI x $bs* : _ := $val; $body)
-  | `(letI _ $bs* : $ty := $val; $body) => `(letI x $bs* : $ty := $val; $body)
-  | `(letI $x:ident $bs* := $val; $body) => `(letI $x $bs* : _ := $val; $body)
-  | `(letI $_:ident $_* : $_ := $_; $_) => throwUnsupported -- handled by elab
-
-elab_rules <= expectedType
-  | `(letI $x:ident $bs* : $ty := $val; $body) => do
-    let (ty, val) ← elabBinders bs fun bs => do
-      let ty ← elabType ty
-      let val ← elabTermEnsuringType val ty
-      pure (← mkForallFVars bs ty, ← mkLambdaFVars bs val)
-    withLetDecl x.getId ty val fun x => do
-      return (← (← elabTerm body expectedType).abstractM #[x]).instantiate #[val]
-
-/-- `letI` behaves like `let`, but inlines the value instead of producing a `let_fun` term. -/
-macro "letI" d:haveDecl : tactic => `(tactic| refine_lift letI $d:haveDecl; ?_)
 /-
   Structure instances are of the form:
 
@@ -103,7 +80,7 @@ where
         withFreshMacroScope do
           let sourceNew ← `(src)
           let r ← go sources (sourcesNew.push sourceNew)
-          `(letI src := $source; $r)
+          `(let src := $source; $r)
 
 structure ExplicitSourceInfo where
   stx        : Syntax
@@ -134,6 +111,11 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
     else
       explicitSource[0].getSepArgs.mapM fun stx => do
         let some src ← isLocalIdent? stx | unreachable!
+        -- let localDecl ← getFVarLocalDecl src
+        -- let fvarID := localDecl.fvarId
+        -- let expr :=
+        -- let name := stx.getId
+        -- let expr := FVarId.mk name|>.getValue?
         addTermInfo' stx src
         let srcType ← whnf (← inferType src)
         tryPostponeIfMVar srcType
@@ -544,7 +526,7 @@ mutual
         | none       =>
           let addField (val : FieldVal Struct) : TermElabM Fields := do
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
-           match Lean.isSubobjectField? env s.structName fieldName with
+          match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
             if let some val ← s.source.explicit.findSomeM? fun source =>
@@ -658,7 +640,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
             projName := s.structName.append fieldName, fieldName, lctx := (← getLCtx), val, stx := ref }
           let e     := mkApp e val
           let type  := b.instantiate1 val
-          let field := { field with expr? := some val }
+          let field := { field with expr? := some (← zetaReduce val) }
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
