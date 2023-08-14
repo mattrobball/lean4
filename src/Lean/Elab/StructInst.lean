@@ -84,6 +84,7 @@ where
 
 structure ExplicitSourceInfo where
   stx        : Syntax
+  val        : Syntax := .missing
   structName : Name
   deriving Inhabited
 
@@ -110,6 +111,7 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
       pure #[]
     else
       explicitSource[0].getSepArgs.mapM fun stx => do
+        logInfo m!"{stx}"
         let some src ← isLocalIdent? stx | unreachable!
         -- let localDecl ← getFVarLocalDecl src
         -- let fvarID := localDecl.fvarId
