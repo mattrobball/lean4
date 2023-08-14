@@ -103,6 +103,12 @@ private def mkSourcesWithSyntax (sources : Array Syntax) : Syntax :=
   let stx := Syntax.mkSep sources (mkAtomFrom ref ", ")
   mkNullNode #[stx, mkAtomFrom ref "with "]
 
+def toSyntax (e : Expr) : TermElabM Syntax.Term := withFreshMacroScope do
+  let stx ← `(?a)
+  let mvar ← elabTermEnsuringType stx (← Meta.inferType e)
+  mvar.mvarId!.assign e
+  pure stx
+
 private def getStructSource (structStx : Syntax) : TermElabM Source :=
   withRef structStx do
     let explicitSource := structStx[1]
@@ -111,18 +117,22 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
       pure #[]
     else
       explicitSource[0].getSepArgs.mapM fun stx => do
-        logInfo m!"{stx}"
+        -- logInfo m!"{stx}"
         let some src ← isLocalIdent? stx | unreachable!
-        -- let localDecl ← getFVarLocalDecl src
-        -- let fvarID := localDecl.fvarId
-        -- let expr :=
+        let localDecl ← getFVarLocalDecl src
+        let fvarID := localDecl.fvarId
+        let optExpr ← fvarID.getValue?
+        let optStx ← optExpr.mapM toSyntax
+        let val := optStx.get!
+        -- let val := if let some expr := optExpr then expr.toSyntax
+          -- else val := .Missing
         -- let name := stx.getId
         -- let expr := FVarId.mk name|>.getValue?
         addTermInfo' stx src
         let srcType ← whnf (← inferType src)
         tryPostponeIfMVar srcType
         let structName ← getStructureName srcType
-        return { stx, structName }
+        return { stx, val, structName }
     let implicit := if implicitSource[0].isNone then none else implicitSource
     return { explicit, implicit }
 
