@@ -103,7 +103,7 @@ private def mkSourcesWithSyntax (sources : Array Syntax) : Syntax :=
   let stx := Syntax.mkSep sources (mkAtomFrom ref ", ")
   mkNullNode #[stx, mkAtomFrom ref "with "]
 
-def toSyntax (e : Expr) : TermElabM Syntax.Term := withFreshMacroScope do
+def toSyntax (e : Expr) : TermElabM Syntax := withFreshMacroScope do
   let stx ← `(?a)
   let mvar ← elabTermEnsuringType stx (← Meta.inferType e)
   mvar.mvarId!.assign e
@@ -123,7 +123,7 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
         let fvarID := localDecl.fvarId
         let optExpr ← fvarID.getValue?
         let optStx ← optExpr.mapM toSyntax
-        let val := optStx.get!
+        let val := optStx.getD .missing
         addTermInfo' stx src
         let srcType ← whnf (← inferType src)
         tryPostponeIfMVar srcType
