@@ -542,7 +542,7 @@ mutual
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
             if let some val ← s.source.explicit.findSomeM? fun source =>
-              mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
+              mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName then
               addField (FieldVal.term val)
             -- If one of the sources has the subobject field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
