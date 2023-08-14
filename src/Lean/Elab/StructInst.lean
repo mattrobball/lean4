@@ -387,6 +387,10 @@ def Struct.setParams (s : Struct) (ps : Array (Name × Expr)) : Struct :=
   match s with
   | ⟨ref, structName, _, fields, source⟩ => ⟨ref, structName, ps, fields, source⟩
 
+def Struct.setSource (s : Struct) (src : Source) : Struct :=
+  match s with
+  | ⟨ref, structName, params, fields, _⟩ => ⟨ref, structName, params, fields, src⟩
+
 private def expandCompositeFields (s : Struct) : Struct :=
   s.modifyFields fun fields => fields.map fun field => match field with
     | { lhs := .fieldName _ (.str Name.anonymous ..) :: _, .. } => field
@@ -532,10 +536,13 @@ mutual
     let fieldNames := getStructureFields env s.structName
     let ref := s.ref.mkSynthetic
     withRef ref do
-      let fields ← fieldNames.foldlM (init := []) fun fields fieldName => do
+      let (source, fields) ← fieldNames.foldlM (init := (s.source,[])) fun (src, fields) fieldName => do
         match findField? s.fields fieldName with
-        | some field => return field::fields
+        | some field => return (src, field::fields)
         | none       =>
+          let deleteExplicitSource (stx : Syntax) (src : Source) : TermElabM Source := do
+            let newExpSrcs := s.source.explicit.filter (fun src => src.val == stx)
+            return {src with explicit := newExpSrcs}
           let addField (val : FieldVal Struct) : TermElabM Fields := do
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
           match Lean.isSubobjectField? env s.structName fieldName with
@@ -543,22 +550,29 @@ mutual
             -- If src is a term for a parent field and the field is that parent projection, use it
             if let some val ← s.source.explicit.findSomeM? fun source =>
               mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName then
-              addField (FieldVal.term val)
+              let rtn := do return (← deleteExplicitSource val src, ← addField (FieldVal.term val))
+              rtn
             -- If one of the sources has the subobject field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
-              addField (FieldVal.term val)
+              let rtn := do return (src, ←addField (FieldVal.term val))
+              rtn
             else
               let substruct := Struct.mk ref substructName #[] [] s.source
               let substruct ← expandStruct substruct
-              addField (FieldVal.nested substruct)
+              let rtn := do return (src, ← addField (FieldVal.nested substruct))
+              rtn
           | none =>
             if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
-              addField (FieldVal.term val)
+              let rtn := do return (src, ← addField (FieldVal.term val))
+              rtn
             else if s.source.implicit.isSome then
-              addField (FieldVal.term (mkHole ref))
+              let rtn := do return (src, ← addField (FieldVal.term (mkHole ref)))
+              rtn
             else
-              addField FieldVal.default
-      return s.setFields fields.reverse
+              let rtn := do return (src, ←  addField FieldVal.default)
+              rtn
+      let newStruct := s.setFields fields.reverse
+      return newStruct.setSource source
 
   private partial def expandStruct (s : Struct) : TermElabM Struct := do
     let s := expandCompositeFields s
