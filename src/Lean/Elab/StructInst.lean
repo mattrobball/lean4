@@ -124,10 +124,6 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
         let optExpr ← fvarID.getValue?
         let optStx ← optExpr.mapM toSyntax
         let val := optStx.get!
-        -- let val := if let some expr := optExpr then expr.toSyntax
-          -- else val := .Missing
-        -- let name := stx.getId
-        -- let expr := FVarId.mk name|>.getValue?
         addTermInfo' stx src
         let srcType ← whnf (← inferType src)
         tryPostponeIfMVar srcType
