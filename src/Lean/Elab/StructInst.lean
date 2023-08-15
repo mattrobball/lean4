@@ -109,6 +109,18 @@ def toSyntax (e : Expr) : TermElabM Syntax := withFreshMacroScope do
   mvar.mvarId!.assign e
   pure stx
 
+def tryReduceLetStx (stx : Syntax) : TermElabM Syntax :=
+  withRef stx do
+    if let some src ← isLocalIdent? stx then
+      let localDecl ← getFVarLocalDecl src
+      let fvarID := localDecl.fvarId
+      let optExpr ← fvarID.getValue?
+      let optStx ← optExpr.mapM toSyntax
+      let stx := optStx.getD stx
+      -- addTermInfo' stx src
+      return stx
+    else return stx
+
 private def getStructSource (structStx : Syntax) : TermElabM Source :=
   withRef structStx do
     let explicitSource := structStx[1]
@@ -117,13 +129,8 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
       pure #[]
     else
       explicitSource[0].getSepArgs.mapM fun stx => do
-        -- logInfo m!"{stx}"
         let some src ← isLocalIdent? stx | unreachable!
-        let localDecl ← getFVarLocalDecl src
-        let fvarID := localDecl.fvarId
-        let optExpr ← fvarID.getValue?
-        let optStx ← optExpr.mapM toSyntax
-        let stx := optStx.getD stx
+        -- let stx ← tryReduceLetStx
         addTermInfo' stx src
         let srcType ← whnf (← inferType src)
         tryPostponeIfMVar srcType
@@ -537,8 +544,9 @@ mutual
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
-            if let some val ← s.source.explicit.findSomeM? fun source =>
+            if let some stx ← s.source.explicit.findSomeM? fun source =>
               mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
+              let val ← tryReduceLetStx stx
               addField (FieldVal.term val)
             -- If one of the sources has the subobject field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then

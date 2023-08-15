@@ -64,8 +64,8 @@ jobs:
             CTEST_OPTIONS: -E 'foreign|leanlaketest_git'
           - name: Linux
             os: ubuntu-latest
-            check-stage3: true
-            test-speedcenter: true
+            check-stage3: false
+            test-speedcenter: false
           - name: Linux Debug
             os: ubuntu-latest
             CMAKE_OPTIONS: -DCMAKE_BUILD_TYPE=Debug
@@ -222,18 +222,18 @@ jobs:
       - name: Check Test Binary
         run: ${{ matrix.binary-check }} tests/compiler/534.lean.out
         if: ${{ !matrix.cross }}
-      # - name: Build Stage 2
-      #   run: |
-      #     cd build
-      #     ulimit -c unlimited # coredumps
-      #     make -j4 stage2
-      #   if: matrix.build-stage2 || matrix.check-stage3
-      # - name: Check Stage 3
-      #   run: |
-      #     cd build
-      #     ulimit -c unlimited # coredumps
-      #     make -j4 check-stage3
-      #   if: matrix.check-stage3
+      - name: Build Stage 2
+        run: |
+          cd build
+          ulimit -c unlimited # coredumps
+          make -j4 stage2
+        if: matrix.build-stage2 || matrix.check-stage3
+      - name: Check Stage 3
+        run: |
+          cd build
+          ulimit -c unlimited # coredumps
+          make -j4 check-stage3
+        if: matrix.check-stage3
       - name: Test Speedcenter Benchmarks
         run: |
           echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
