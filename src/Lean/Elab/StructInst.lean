@@ -537,7 +537,11 @@ mutual
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
-            if let some val ← s.source.explicit.findSomeM? fun source =>
+            let optVal ← s.source.explicit.findSomeM? fun source =>
+              mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName
+            if optVal != none && optVal != some .missing then
+              addField (FieldVal.term <| optVal.getD .missing)
+            else if let some val ← s.source.explicit.findSomeM? fun source =>
               mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName then
               addField (FieldVal.term val)
             -- If one of the sources has the subobject field, use it
