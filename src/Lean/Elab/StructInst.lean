@@ -84,7 +84,7 @@ where
 
 structure ExplicitSourceInfo where
   stx        : Syntax
-  val        : Syntax := .missing
+  -- val        : Syntax := .missing
   structName : Name
   deriving Inhabited
 
@@ -123,12 +123,12 @@ private def getStructSource (structStx : Syntax) : TermElabM Source :=
         let fvarID := localDecl.fvarId
         let optExpr ← fvarID.getValue?
         let optStx ← optExpr.mapM toSyntax
-        let val := optStx.getD .missing
+        let stx := optStx.getD stx
         addTermInfo' stx src
         let srcType ← whnf (← inferType src)
         tryPostponeIfMVar srcType
         let structName ← getStructureName srcType
-        return { stx, val, structName }
+        return { stx, structName }
     let implicit := if implicitSource[0].isNone then none else implicitSource
     return { explicit, implicit }
 
@@ -537,12 +537,8 @@ mutual
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
-            let optVal ← s.source.explicit.findSomeM? fun source =>
-              mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName
-            if optVal != none && optVal != some .missing then
-              addField (FieldVal.term <| optVal.getD .missing)
-            else if let some val ← s.source.explicit.findSomeM? fun source =>
-              mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName then
+            if let some val ← s.source.explicit.findSomeM? fun source =>
+              mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
               addField (FieldVal.term val)
             -- If one of the sources has the subobject field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
