@@ -538,7 +538,7 @@ mutual
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
             if let some val ← s.source.explicit.findSomeM? fun source =>
-              mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
+              mkDirectParentProjStx? source.val s.structName substructName source.structName fieldName then
               addField (FieldVal.term val)
             -- If one of the sources has the subobject field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
@@ -648,7 +648,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
             projName := s.structName.append fieldName, fieldName, lctx := (← getLCtx), val, stx := ref }
           let e     := mkApp e val
           let type  := b.instantiate1 val
-          let field := { field with expr? := some (← zetaReduce val) }
+          let field := { field with expr? := some val }
           return (e, type, field::fields, instMVars)
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
