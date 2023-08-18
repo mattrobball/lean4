@@ -1811,8 +1811,7 @@ private def cacheResult (key : Expr × Expr) (result : Bool) : MetaM Unit := do
 
 @[export lean_is_expr_def_eq]
 partial def isExprDefEqAuxImpl (t : Expr) (s : Expr) : MetaM Bool := withIncRecDepth do
-  logInfo m!"Context depth is {(← getMCtx).depth}"
-  withTraceNodeBefore `Meta.isDefEq (return m!"{t} =?= {s}") do
+  withTraceNodeBefore `Meta.isDefEq (return m!"{t} =?= {s} & context depth is {(← getMCtx).depth}") do
   checkMaxHeartbeats "isDefEq"
   whenUndefDo (isDefEqQuick t s) do
   whenUndefDo (isDefEqProofIrrel t s) do
