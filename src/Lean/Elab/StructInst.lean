@@ -486,7 +486,11 @@ def getFieldName? (env : Environment) (structName parentName : Name) : Option Na
 /-- If an explicit source projects directly to the structure and no field have been provided,
   then we pull out that syntax for that projection -/
 def instantiateStruct? (s : Struct) : TermElabM <| Option Syntax := do
-  if !s.fields.isEmpty then return none else
+  if !s.fields.isEmpty then return none
+  else if !(s.source.explicit.filter fun src => src.structName == s.structName).isEmpty then
+    return s.source.explicit.findSome? fun src =>
+      if src.structName == s.structName then some src.stx else none
+  else
     let env ← getEnv
     let synName := s.source.explicit.findSome? fun src => do
       let fieldName ← getFieldName? env src.structName s.structName
