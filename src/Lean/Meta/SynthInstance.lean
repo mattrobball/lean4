@@ -240,6 +240,7 @@ def mkGeneratorNode? (key mvar : Expr) : MetaM (Option GeneratorNode) := do
   `key` must be `mkTableKey mctx mvarType`. -/
 def newSubgoal (mctx : MetavarContext) (key : Expr) (mvar : Expr) (waiter : Waiter) : SynthM Unit :=
   withMCtx mctx do withTraceNode' `Meta.synthInstance do
+    let depth := (← getMCtx).depth
     match (← mkGeneratorNode? key mvar) with
     | none      => pure ((), m!"no instances for {key}")
     | some node =>
@@ -248,7 +249,7 @@ def newSubgoal (mctx : MetavarContext) (key : Expr) (mvar : Expr) (waiter : Wait
        { s with
          generatorStack := s.generatorStack.push node
          tableEntries   := s.tableEntries.insert key entry }
-      pure ((), m!"new goal {key}")
+      pure ((), m!"new goal {key} at depth {depth}")
 
 def findEntry? (key : Expr) : SynthM (Option TableEntry) := do
   return (← get).tableEntries.find? key
@@ -331,7 +332,7 @@ def tryResolve (mvar : Expr) (inst : Instance) : MetaM (Option (MetavarContext �
   forallTelescopeReducing mvarType fun xs mvarTypeBody => do
     let ⟨subgoals, instVal, instTypeBody⟩ ← getSubgoals lctx localInsts xs inst
     withTraceNode `Meta.synthInstance.tryResolve (withMCtx (← getMCtx) do
-        return m!"{exceptOptionEmoji ·} {← instantiateMVars mvarTypeBody} ≟ {← instantiateMVars instTypeBody}") do
+        return m!"{exceptOptionEmoji ·} {← instantiateMVars mvarTypeBody} ≟ {← instantiateMVars instTypeBody} at depth (← getMCtx).depth") do
     if (← isDefEq mvarTypeBody instTypeBody) then
       let instVal ← mkLambdaFVars xs instVal
       if (← isDefEq mvar instVal) then
