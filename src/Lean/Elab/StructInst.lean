@@ -471,7 +471,7 @@ def isParentProj (structName fieldName : Name) : TermElabM Bool := do
   `substructName` is the name of the subobject of the structure, `fieldStructName` is the
   name of the `ExplicitSourceInfo`, and `fieldName` is the field we are trying to fill -/
 def mkDirectParentProjStx? (s : Syntax) (structName substructName fieldStructName fieldName : Name) : TermElabM <| Option Syntax := do
-  if (substructName == fieldStructName) && (← isParentProj structName fieldName) then return some s
+  if (substructName == fieldStructName) && (isSubobjectField? (← getEnv) structName fieldName).isSome then return some s
   else return none
 
 /-- If `parentName` is a parent to `structName` then return the corresponding field name. Else
@@ -549,8 +549,11 @@ mutual
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
-            if let some stx ← s.source.explicit.findSomeM? fun source =>
-              mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
+            if let some stx := s.source.explicit.findSome?
+              (fun source => match substructName == source.structName with
+                | true => some source.stx | false => none) then
+              -- (if substructName == source.structName then some source.stx else none)
+              -- mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
               addField (FieldVal.term stx)
             -- If one of the sources has the subobject field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
