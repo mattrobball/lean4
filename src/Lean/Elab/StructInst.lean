@@ -458,45 +458,32 @@ def mkProjStx? (s : Syntax) (structName : Name) (fieldName : Name) : TermElabM (
     return none
   return some <| mkNode ``Parser.Term.proj #[s, mkAtomFrom s ".", mkIdentFrom s fieldName]
 
--- This is in Mathlib.Lean.Expr.Basic
-def getFieldsToParents (env : Environment) (structName : Name) : Array Name :=
-  getStructureFields env structName |>.filter fun fieldName =>
-    isSubobjectField? env structName fieldName |>.isSome
-
-def isParentProj (structName fieldName : Name) : TermElabM Bool := do
-  let parentProjs := getFieldsToParents (← getEnv) structName
-  return !(parentProjs.filter (fun name => name == fieldName)).isEmpty
-
-/-- Below `structName` is name of the structure we are trying to fill in fields for,
-  `substructName` is the name of the subobject of the structure, `fieldStructName` is the
-  name of the `ExplicitSourceInfo`, and `fieldName` is the field we are trying to fill -/
-def mkDirectParentProjStx? (s : Syntax) (structName substructName fieldStructName fieldName : Name) : TermElabM <| Option Syntax := do
-  if (substructName == fieldStructName) && (isSubobjectField? (← getEnv) structName fieldName).isSome then return some s
-  else return none
-
-/-- If `parentName` is a parent to `structName` then return the corresponding field name. Else
-  return `none`. -/
-def getFieldName? (env : Environment) (structName parentName : Name) : Option Name := do
-  let structInfo ← getStructureInfo? env structName
-  structInfo.fieldInfo.findSome? fun info =>
-    if info.subobject? == some parentName then
-      info.fieldName
-    else none
-
-/-- If an explicit source projects directly to the structure and no field have been provided,
-  then we pull out that syntax for that projection -/
-def instantiateStruct? (s : Struct) : TermElabM <| Option Syntax := do
-  if !s.fields.isEmpty then return none
-  else if !(s.source.explicit.filter fun src => src.structName == s.structName).isEmpty then
-    return s.source.explicit.findSome? fun src =>
-      if src.structName == s.structName then some src.stx else none
-  else
-    let env ← getEnv
-    let synName := s.source.explicit.findSome? fun src => do
-      let fieldName ← getFieldName? env src.structName s.structName
-      return {fst := src.stx, snd := fieldName : Syntax × Name}
-    return synName.map fun ⟨stx,fieldName⟩ =>
-      mkNode ``Parser.Term.proj #[stx, mkAtomFrom stx ".", mkIdentFrom stx fieldName]
+-- /-- If `parentName` is a parent to `structName` then return the corresponding field name. Else
+--   return `none`. -/
+-- def getFieldName? (env : Environment) (structName parentName : Name) : Option Name := do
+--   let structInfo ← getStructureInfo? env structName
+--   structInfo.fieldInfo.find? (·.subobject? == some parentName)|>.map (·.fieldName)
+--
+-- /-- If an explicit source projects directly to the structure and no field have been provided,
+--   then we pull out that syntax for that projection -/
+-- def instantiateStruct? (s : Struct) : TermElabM <| Option Expr := do
+--   if !s.fields.isEmpty then return none
+--   else if let some stx := s.source.explicit.find? (·.structName == s.structName)|>.map (·.stx) then
+--     try
+--       return ← elabTermEnsuringType stx expectedType
+--     catch _ => return none
+--     if
+--     return none
+--   -- else if !(s.source.explicit.filter fun src => src.structName == s.structName).isEmpty then
+--   --   if let some stx := s.source.explicit.findSome? fun src =>
+--   --     if src.structName == s.structName then some src.stx else none then
+--   else
+--     let env ← getEnv
+--     let synName := s.source.explicit.findSome? fun src => do
+--       let fieldName ← getFieldName? env src.structName s.structName
+--       return {fst := src.stx, snd := fieldName : Syntax × Name}
+--     return synName.map fun ⟨stx,fieldName⟩ =>
+--       mkNode ``Parser.Term.proj #[stx, mkAtomFrom stx ".", mkIdentFrom stx fieldName]
 
 def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
   fields.find? fun field =>
@@ -549,13 +536,9 @@ mutual
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
             -- If src is a term for a parent field and the field is that parent projection, use it
-            if let some stx := s.source.explicit.findSome?
-              (fun source => match substructName == source.structName with
-                | true => some source.stx | false => none) then
-              -- (if substructName == source.structName then some source.stx else none)
-              -- mkDirectParentProjStx? source.stx s.structName substructName source.structName fieldName then
+            if let some stx := s.source.explicit.find? (·.structName == substructName)|>.map (·.stx) then
               addField (FieldVal.term stx)
-            -- If one of the sources has the subobject field, use it
+            -- If one of the sources has the subobject field as a field, use it
             else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
               addField (FieldVal.term val)
             else
@@ -927,8 +910,8 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
-  if let some stx ← instantiateStruct? struct then
-    return (← elabTerm stx expectedType?) else
+  -- if let some stx ← instantiateStruct? struct then
+  --   return (← elabTermEnsuringType stx expectedType?) else
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
