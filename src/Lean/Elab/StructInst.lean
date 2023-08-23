@@ -84,7 +84,6 @@ where
 
 structure ExplicitSourceInfo where
   stx        : Syntax
-  -- val        : Syntax := .missing
   structName : Name
   deriving Inhabited
 
