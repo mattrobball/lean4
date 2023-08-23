@@ -8,6 +8,8 @@ import Lean.Parser.Term
 import Lean.Meta.Structure
 import Lean.Elab.App
 import Lean.Elab.Binders
+import Lean.Elab.ElabRules
+open Lean Elab Parser Term Meta Macro
 
 namespace Lean.Elab.Term.StructInst
 
@@ -82,6 +84,7 @@ where
 
 structure ExplicitSourceInfo where
   stx        : Syntax
+  -- val        : Syntax := .missing
   structName : Name
   deriving Inhabited
 
@@ -455,6 +458,28 @@ def mkProjStx? (s : Syntax) (structName : Name) (fieldName : Name) : TermElabM (
     return none
   return some <| mkNode ``Parser.Term.proj #[s, mkAtomFrom s ".", mkIdentFrom s fieldName]
 
+/-- If `parentName` is a parent to `structName` then return the corresponding field name. Else
+  return `none`. -/
+def getFieldName? (env : Environment) (structName parentName : Name) : Option Name := do
+  let structInfo ← getStructureInfo? env structName
+  structInfo.fieldInfo.find? (·.subobject? == some parentName)|>.map (·.fieldName)
+
+/-- If a user provides a single explicit source and no field values, check if the source
+  projects onto the structure. If so, return the syntax for the projection including the possible
+  degenerate case. Otherwise, return none. -/
+def singleProj? (s : Struct) : TermElabM <| Option Syntax := do
+  if s.fields.isEmpty && s.source.explicit.data.length == 1 then
+    if let some stx := s.source.explicit.find? (·.structName == s.structName)|>.map (·.stx) then
+      return stx
+    else
+      let env ← getEnv
+      let synName := s.source.explicit.findSome? fun src => do
+        let fieldName ← getFieldName? env src.structName s.structName
+        return {fst := src.stx, snd := fieldName : Syntax × Name}
+      return synName.map fun ⟨stx,fieldName⟩ =>
+        mkNode ``Parser.Term.proj #[stx, mkAtomFrom stx ".", mkIdentFrom stx fieldName]
+  else return none
+
 def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
   fields.find? fun field =>
     match field.lhs with
@@ -505,8 +530,11 @@ mutual
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
-            -- If one of the sources has the subobject field, use it
-            if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
+            -- If src is a term for a parent field and the field is that parent projection, use it
+            if let some stx := s.source.explicit.find? (·.structName == substructName)|>.map (·.stx) then
+              addField (FieldVal.term stx)
+            -- If one of the sources has the subobject field as a field, use it
+            else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
               addField (FieldVal.term val)
             else
               let substruct := Struct.mk ref substructName #[] [] s.source
@@ -877,6 +905,11 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
+  if let some type := expectedType? then
+    if let some stx ← singleProj? struct then
+      let e ← elabTerm stx type
+      if (← isDefEq (← inferType e) type) then
+        return e
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
