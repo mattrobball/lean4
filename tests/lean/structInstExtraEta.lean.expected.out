@@ -1,0 +1,5 @@
+declaration uses 'sorry'
+declaration uses 'sorry'
+def a'' : A :=  let src := a;  src
+def a' : A :=  let src := b;  src.toA
+def b' : B :=  let src := a;  { toA := src }
