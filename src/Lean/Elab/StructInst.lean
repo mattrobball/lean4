@@ -458,32 +458,27 @@ def mkProjStx? (s : Syntax) (structName : Name) (fieldName : Name) : TermElabM (
     return none
   return some <| mkNode ``Parser.Term.proj #[s, mkAtomFrom s ".", mkIdentFrom s fieldName]
 
--- /-- If `parentName` is a parent to `structName` then return the corresponding field name. Else
---   return `none`. -/
--- def getFieldName? (env : Environment) (structName parentName : Name) : Option Name := do
---   let structInfo ← getStructureInfo? env structName
---   structInfo.fieldInfo.find? (·.subobject? == some parentName)|>.map (·.fieldName)
---
--- /-- If an explicit source projects directly to the structure and no field have been provided,
---   then we pull out that syntax for that projection -/
--- def instantiateStruct? (s : Struct) : TermElabM <| Option Expr := do
---   if !s.fields.isEmpty then return none
---   else if let some stx := s.source.explicit.find? (·.structName == s.structName)|>.map (·.stx) then
---     try
---       return ← elabTermEnsuringType stx expectedType
---     catch _ => return none
---     if
---     return none
---   -- else if !(s.source.explicit.filter fun src => src.structName == s.structName).isEmpty then
---   --   if let some stx := s.source.explicit.findSome? fun src =>
---   --     if src.structName == s.structName then some src.stx else none then
---   else
---     let env ← getEnv
---     let synName := s.source.explicit.findSome? fun src => do
---       let fieldName ← getFieldName? env src.structName s.structName
---       return {fst := src.stx, snd := fieldName : Syntax × Name}
---     return synName.map fun ⟨stx,fieldName⟩ =>
---       mkNode ``Parser.Term.proj #[stx, mkAtomFrom stx ".", mkIdentFrom stx fieldName]
+/-- If `parentName` is a parent to `structName` then return the corresponding field name. Else
+  return `none`. -/
+def getFieldName? (env : Environment) (structName parentName : Name) : Option Name := do
+  let structInfo ← getStructureInfo? env structName
+  structInfo.fieldInfo.find? (·.subobject? == some parentName)|>.map (·.fieldName)
+
+/-- If a user provides a single explicit source and no field values, check if the source
+  projects onto the structure. If so, return the syntax for the projection including the possible
+  degenerate case. Otherwise, return none. -/
+def singleProj? (s : Struct) : TermElabM <| Option Syntax := do
+  if s.fields.isEmpty && s.source.explicit.data.length == 1 then
+    if let some stx := s.source.explicit.find? (·.structName == s.structName)|>.map (·.stx) then
+      return stx
+    else
+      let env ← getEnv
+      let synName := s.source.explicit.findSome? fun src => do
+        let fieldName ← getFieldName? env src.structName s.structName
+        return {fst := src.stx, snd := fieldName : Syntax × Name}
+      return synName.map fun ⟨stx,fieldName⟩ =>
+        mkNode ``Parser.Term.proj #[stx, mkAtomFrom stx ".", mkIdentFrom stx fieldName]
+  else return none
 
 def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
   fields.find? fun field =>
@@ -910,8 +905,11 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
-  -- if let some stx ← instantiateStruct? struct then
-  --   return (← elabTermEnsuringType stx expectedType?) else
+  if let some type := expectedType? then
+    if let some stx ← singleProj? struct then
+      let e ← elabTerm stx type
+      if (← isDefEq (← inferType e) type) then
+        return e
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
