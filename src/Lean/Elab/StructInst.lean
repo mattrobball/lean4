@@ -8,8 +8,6 @@ import Lean.Parser.Term
 import Lean.Meta.Structure
 import Lean.Elab.App
 import Lean.Elab.Binders
-import Lean.Elab.ElabRules
-open Lean Elab Parser Term Meta Macro
 
 namespace Lean.Elab.Term.StructInst
 
