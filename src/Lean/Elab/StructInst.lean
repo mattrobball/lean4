@@ -505,8 +505,16 @@ mutual
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
-            -- If one of the sources has the subobject field, use it
-            if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
+            -- If src is a term for a parent field and the field is that parent projection, use it
+            -- This is necessary as `findField? `A `toA` returns none hence so will `mkProjStx?`
+            -- The resulting extra eta expansion has a surprising effect on performance. Without
+            -- this change, the terms resulting from elaboration are larger. Worse, unification
+            -- must pull them apart when often, without the eta expansion, that would not be
+            -- necessary. This change occurred in #2478.
+            if let some stx := s.source.explicit.find? (·.structName == substructName) |>.map (·.stx) then
+              addField (FieldVal.term stx)
+            -- If one of the sources has the subobject field as a field, use it
+            else if let some val ← s.source.explicit.findSomeM? fun source => mkProjStx? source.stx source.structName fieldName then
               addField (FieldVal.term val)
             else
               let substruct := Struct.mk ref substructName #[] [] s.source
