@@ -888,8 +888,14 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
+  let env ← getEnv
   if let some name ← fieldCollision? struct then
-    logInfo m!"Field collision at '{name}' in {structName}"
+    let i := env.getModuleIdxFor? name
+    if let some idx := i then
+      let m := env.header.moduleNames.get! idx
+      logInfo m!"Field collision at '{name}' in {structName} in {m}"
+    else
+      logInfo m!"Field collision at '{name}' in {structName}"
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
