@@ -461,6 +461,17 @@ def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
     | [.fieldName _ n] => n == fieldName
     | _                => false
 
+def fieldCollision? (s : Struct) : TermElabM <| Option Name := do
+  let env ← getEnv
+  let instNames := s.source.explicit.map (·.structName)
+  return instNames.findSome? fun instName =>
+    let fields := getStructureFields env instName
+    fields.findSome? fun fieldName => do
+      if findField? s.fields fieldName |>.isSome then
+        return fieldName
+      else
+        none
+
 mutual
 
   private partial def groupFields (s : Struct) : TermElabM Struct := do
@@ -877,6 +888,8 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
+  if let some name ← fieldCollision? struct then
+    logInfo m!"Field collision at '{name}'"
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
