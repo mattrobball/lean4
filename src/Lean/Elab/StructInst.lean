@@ -889,7 +889,7 @@ private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (sour
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
   if let some name ← fieldCollision? struct then
-    logInfo m!"Field collision at '{name}'"
+    logInfo m!"Field collision at '{name}' in {structName}"
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
