@@ -285,6 +285,7 @@ jobs:
           # ctest -j4 --output-on-failure ${{ matrix.CTEST_OPTIONS }} < /dev/null
         # if: ${{ !matrix.cross }}
       - name: Check Test Binary
+        run: echo "hi"
         # run: ${{ matrix.binary-check }} tests/compiler/534.lean.out
         # if: ${{ !matrix.cross }}
       - name: Build Stage 2
