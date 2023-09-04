@@ -465,7 +465,7 @@ def fieldCollision? (s : Struct) : TermElabM <| Option Name := do
   let env ← getEnv
   let instNames := s.source.explicit.map (·.structName)
   return instNames.findSome? fun instName =>
-    let fields := getStructureFields env instName
+    let fields := getStructureFieldsFlattened env instName
     fields.findSome? fun fieldName => do
       if findField? s.fields fieldName |>.isSome then
         return fieldName
