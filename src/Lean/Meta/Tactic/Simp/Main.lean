@@ -98,7 +98,10 @@ private def reduceProjFn? (e : Expr) : SimpM (Option Expr) := do
           and invoke `unfoldDefinition?`.
           Recall that `unfoldDefinition?` has support for unfolding this kind of projection when transparency mode is `.instances`.
           -/
-          withReducibleAndInstances <| unfoldDefinition? e
+          let e? ← withReducibleAndInstances <| unfoldDefinition? e
+          if e?.isSome then
+            recordSimpTheorem (.decl cinfo.name)
+          return e?
         else
           /-
           Recall that class projections are **not** marked with `[reducible]` because we want them to be
@@ -992,7 +995,7 @@ def simpGoal (mvarId : MVarId) (ctx : Simp.Context) (discharge? : Option Simp.Di
         mvarIdNew ← mvarIdNew.replaceLocalDeclDefEq fvarId r.expr
         replaced := replaced.push fvarId
     if simplifyTarget then
-      match (← simpTarget mvarIdNew ctx discharge?) with
+      match (← simpTarget mvarIdNew ctx discharge? (usedSimps := usedSimps)) with
       | (none, usedSimps') => return (none, usedSimps')
       | (some mvarIdNew', usedSimps') => mvarIdNew := mvarIdNew'; usedSimps := usedSimps'
     let (fvarIdsNew, mvarIdNew') ← mvarIdNew.assertHypotheses toAssert

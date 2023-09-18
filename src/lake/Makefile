@@ -4,7 +4,7 @@ LAKE ?= ./build/bin/lake
 # Suite Targets
 #-------------------------------------------------------------------------------
 
-TESTS := $(addprefix test/, $(shell ls test))
+TESTS := $(addprefix tests/, $(shell ls tests))
 EXAMPLES := $(addprefix examples/, $(filter-out bootstrap, $(shell ls examples)))
 
 default: build
@@ -30,7 +30,7 @@ clean-examples:  $(addsuffix .clean, $(EXAMPLES))
 .PHONY:
 	all test test-ci test-tests test-examples\
 	test-bootstrap time-bootstrap check-bootstrap test-bootstrapped test-boostrapped-hello\
-	$(addsuffix .clean, $(TESTS) $(EXAMPLES)) $(addsuffix .test, $(TESTS))
+	$(addsuffix .clean, $(TESTS) $(EXAMPLES)) $(addsuffix .test, $(TESTS) $(EXAMPLES))
 
 #-------------------------------------------------------------------------------
 # Build Targets
@@ -52,11 +52,11 @@ check-lake:
 # Test / Example Targets
 #-------------------------------------------------------------------------------
 
-test/%.test:
-	cd test/$* && ./test.sh
+tests/%.test:
+	cd tests/$* && ./test.sh
 
-test/%.clean:
-	cd test/$* && ./clean.sh
+tests/%.clean:
+	cd tests/$* && ./clean.sh
 
 examples/%.test:
 	cd examples/$* && ./test.sh
