@@ -13,6 +13,12 @@ namespace Lean.Elab
 open Meta
 open Term
 
+register_builtin_option compiler.suppress : Bool := {
+  defValue := false
+  group    := "compiler"
+  descr    := "suppress compilation"
+}
+
 /--
   A (potentially recursive) definition.
   The elaborator converts it into Kernel definitions using many different strategies.
@@ -78,6 +84,9 @@ private def shouldGenCodeFor (preDef : PreDefinition) : Bool :=
   !preDef.kind.isTheorem && !preDef.modifiers.isNoncomputable
 
 private def compileDecl (decl : Declaration) : TermElabM Bool := do
+  if compiler.suppress.get (← getOptions)  then
+    return true
+  else
   try
     Lean.compileDecl decl
   catch ex =>
