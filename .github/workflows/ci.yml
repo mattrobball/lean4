@@ -219,7 +219,7 @@ jobs:
           brew install ccache tree zstd coreutils gmp
         if: matrix.os == 'macos-latest'
       - name: Setup emsdk
-        uses: mymindstorm/setup-emsdk@v11
+        uses: mymindstorm/setup-emsdk@v12
         with:
           version: 3.1.44
           actions-cache-folder: emsdk
@@ -399,7 +399,7 @@ jobs:
           git fetch nightly --tags
           git tag ${{ needs.set-nightly.outputs.nightly }}
           git push nightly ${{ needs.set-nightly.outputs.nightly }}
-          git push origin refs/tags/${{ needs.set-nightly.outputs.nightly }}:refs/heads/nightly
+          git push -f origin refs/tags/${{ needs.set-nightly.outputs.nightly }}:refs/heads/nightly
           last_tag=$(git log HEAD^ --simplify-by-decoration --pretty="format:%d" | grep -o "nightly-[-0-9]*" | head -n 1)
           echo -e "*Changes since ${last_tag}:*\n\n" > diff.md
           git show $last_tag:RELEASES.md > old.md

@@ -11,27 +11,7 @@ of each version.
 v4.4.0 (development in progress)
 ---------
 
-v4.3.0
----------
-
-* Many bug fixes:
-  * [Reduction of `Decidable` instances very slow when using `cases` tactic](https://github.com/leanprover/lean4/issues/2552)
-  * [`simp` not rewriting in binder](https://github.com/leanprover/lean4/issues/1926)
-  * [`simp` unfolding `let` even with `zeta := false` option](https://github.com/leanprover/lean4/issues/2669)
-  * [`simp` (with beta/zeta disabled) and discrimination trees](https://github.com/leanprover/lean4/issues/2281)
-  * [unknown free variable introduced by `rw ... at h`](https://github.com/leanprover/lean4/issues/2711)
-  * [`dsimp` doesn't use `rfl` theorems which consist of an unapplied constant](https://github.com/leanprover/lean4/issues/2685)
-  * [`dsimp` does not close reflexive equality goals if they are wrapped in metadata](https://github.com/leanprover/lean4/issues/2514)
-  * [`rw [h]` uses `h` from the environment in preference to `h` from the local context](https://github.com/leanprover/lean4/issues/2729)
-  * [missing `withAssignableSyntheticOpaque` for `assumption` tactic](https://github.com/leanprover/lean4/issues/2361)
-  * [ignoring default value for field warning](https://github.com/leanprover/lean4/issues/2178)
-* [Cancel outstanding tasks on document edit in the language server](https://github.com/leanprover/lean4/pull/2648).
-* [Remove unnecessary `%` operations in `Fin.mod` and `Fin.div`](https://github.com/leanprover/lean4/pull/2688)
-* [Avoid `DecidableEq` in `Array.mem`](https://github.com/leanprover/lean4/pull/2774)
-* [Ensure `USize.size` unifies with `?m + 1`](https://github.com/leanprover/lean4/issues/1926)
-* [Improve compatibility with emacs eglot client](https://github.com/leanprover/lean4/pull/2721)
-
-**Lake:**
+* By default, `simp` will no longer try to use Decidable instances to rewrite terms. In particular, not all decidable goals will be closed by `simp`, and the `decide` tactic may be useful in such cases. The `decide` simp configuration option can be used to locally restore the old `simp` behavior, as in `simp (config := {decide := true})`; this includes using Decidable instances to verify side goals such as numeric inequalities.
 
 v4.3.0
 ---------
