@@ -1350,6 +1350,11 @@ def headBeta (e : Expr) : Expr :=
   let f := e.getAppFn
   if f.isHeadBetaTargetFn false then betaRev f e.getAppRevArgs else e
 
+/-- `headBeta` which also goes into the body of lambda expression -/
+def headBetaBody : Expr → Expr
+  | Expr.lam name binTy body binInfo => .lam name binTy body.headBeta binInfo
+  | e => e.headBeta
+
 /--
 Return true if the given expression is a target for (head) beta reduction.
 If `useZeta = true`, then `let`-expressions are visited. That is, it assumes

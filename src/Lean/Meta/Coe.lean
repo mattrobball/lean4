@@ -29,7 +29,7 @@ partial def expandCoe (e : Expr) : MetaM Expr :=
         let declName := f.constName!
         if isCoeDecl (← getEnv) declName then
           if let some e ← unfoldDefinition? e then
-            return .visit e.headBeta
+            return .visit e.headBetaBody
       return .continue
 
 register_builtin_option autoLift : Bool := {
