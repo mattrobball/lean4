@@ -20,8 +20,24 @@ builtin_initialize coeDeclAttr : TagAttribute ←
 def isCoeDecl (env : Environment) (declName : Name) : Bool :=
   coeDeclAttr.hasTag env declName
 
+/-- `headBeta` which also goes into the body of lambda expression -/
+def _root_.Lean.Expr.headBetaBody : Expr → Expr
+  | Expr.lam name binTy body binInfo => .lam name binTy body.headBeta binInfo
+  | e => e.headBeta
+
 /-- Expand coercions occurring in `e` -/
 partial def expandCoe (e : Expr) : MetaM Expr :=
+  withReducibleAndInstances do
+    transform e fun e => do
+      let f := e.getAppFn
+      if f.isConst then
+        let declName := f.constName!
+        if isCoeDecl (← getEnv) declName then
+          if let some e ← unfoldDefinition? e then
+            return .visit e.headBeta
+      return .continue
+
+partial def expandCoe' (e : Expr) : MetaM Expr :=
   withReducibleAndInstances do
     transform e fun e => do
       let f := e.getAppFn
@@ -60,7 +76,7 @@ def coerceToFunction? (expr : Expr) : MetaM (Option Expr) := do
   let v ← mkFreshLevelMVar
   let γ ← mkFreshExprMVar (← mkArrow α (mkSort v))
   let .some inst ← trySynthInstance (mkApp2 (.const ``CoeFun [u,v]) α γ) | return none
-  let expanded ← expandCoe (mkApp4 (.const ``CoeFun.coe [u,v]) α γ inst expr)
+  let expanded ← expandCoe' (mkApp4 (.const ``CoeFun.coe [u,v]) α γ inst expr)
   unless (← whnf (← inferType expanded)).isForall do
     throwError "failed to coerce{indentExpr expr}\nto a function, after applying `CoeFun.coe`, result is still not a function{indentExpr expanded}\nthis is often due to incorrect `CoeFun` instances, the synthesized instance was{indentExpr inst}"
   return expanded
