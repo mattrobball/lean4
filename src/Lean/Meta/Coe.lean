@@ -34,7 +34,7 @@ partial def expandCoe (e : Expr) : MetaM Expr :=
         let declName := f.constName!
         if isCoeDecl (← getEnv) declName then
           if let some e ← unfoldDefinition? e then
-            return .visit e.headBeta
+            return .visit e.headBetaBody
       return .continue
 
 -- partial def expandCoe' (e : Expr) : MetaM Expr :=
@@ -71,7 +71,7 @@ def coerceSimple? (expr expectedType : Expr) : MetaM (LOption Expr) := do
   let coeTInstType := mkAppN (mkConst ``CoeT [u, v]) #[eType, expr, expectedType]
   match ← trySynthInstance coeTInstType with
   | .some inst =>
-    let result := reduceStuff (← expandCoe (mkAppN (mkConst ``CoeT.coe [u, v]) #[eType, expr, expectedType, inst]))
+    let result ← expandCoe (mkAppN (mkConst ``CoeT.coe [u, v]) #[eType, expr, expectedType, inst])
     unless ← isDefEq (← inferType result) expectedType do
       throwError "could not coerce{indentExpr expr}\nto{indentExpr expectedType}\ncoerced expression has wrong type:{indentExpr result}"
     return .some result
