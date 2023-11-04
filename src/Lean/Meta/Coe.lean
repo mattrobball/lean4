@@ -34,7 +34,7 @@ partial def expandCoe (e : Expr) : MetaM Expr :=
         let declName := f.constName!
         if isCoeDecl (← getEnv) declName then
           if let some e ← unfoldDefinition? e then
-            return .visit e.headBetaBody
+            return .visit e.headBeta
       return .continue
 
 -- partial def expandCoe' (e : Expr) : MetaM Expr :=
@@ -61,7 +61,7 @@ def bodyBeta (e : Expr) : Expr :=
 def reduceStuff (e : Expr) : Expr :=
   let f := e.getAppFn
   let args := e.getAppArgs
-  mkAppN f <| args.map bodyBeta
+  mkAppN f <| args.map fun e => e.headBetaBody
 
 /-- Coerces `expr` to `expectedType` using `CoeT`. -/
 def coerceSimple? (expr expectedType : Expr) : MetaM (LOption Expr) := do
@@ -74,7 +74,7 @@ def coerceSimple? (expr expectedType : Expr) : MetaM (LOption Expr) := do
     let result ← expandCoe (mkAppN (mkConst ``CoeT.coe [u, v]) #[eType, expr, expectedType, inst])
     unless ← isDefEq (← inferType result) expectedType do
       throwError "could not coerce{indentExpr expr}\nto{indentExpr expectedType}\ncoerced expression has wrong type:{indentExpr result}"
-    return .some result
+    return .some <| reduceStuff result
   | .undef => return .undef
   | .none => return .none
 
