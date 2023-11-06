@@ -1,0 +1,4 @@
+structInstExtraEta.lean:8:4-8:5: warning: declaration uses 'sorry'
+def b' : B :=
+let src := a;
+{ toA := src }
