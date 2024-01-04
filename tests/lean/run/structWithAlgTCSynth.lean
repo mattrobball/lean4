@@ -1,3 +1,4 @@
+
 /- This file reproduces in pure Lean a Mathlib timeout occuring in typeclass synthesis when the
 structure elaboration uses an extra eta expansion at the top level lean4#2451 -/
 
@@ -832,7 +833,7 @@ instance nonUnitalCommSemiring [CommSemiring k] [AddCommSemigroup G] :
     mul_comm := sorry }
 
 instance commSemiring [CommSemiring k] [AddCommMonoid G] : CommSemiring (AddMonoidAlgebra k G) :=
-  { AddMonoidAlgebra.nonUnitalCommSemiring, AddMonoidAlgebra.semiring with }
+  {AddMonoidAlgebra.semiring, AddMonoidAlgebra.nonUnitalCommSemiring with }
 
 instance addCommGroup [Ring k] : AddCommGroup (AddMonoidAlgebra k G) :=
   Finsupp.addCommGroup
@@ -848,14 +849,14 @@ instance nonAssocRing [Ring k] [AddZeroClass G] : NonAssocRing (AddMonoidAlgebra
     AddMonoidAlgebra.nonAssocSemiring with }
 
 instance ring [Ring k] [AddMonoid G] : Ring (AddMonoidAlgebra k G) :=
-  { AddMonoidAlgebra.nonAssocRing, AddMonoidAlgebra.semiring with }
+  { AddMonoidAlgebra.semiring, AddMonoidAlgebra.nonAssocRing with }
 
 instance nonUnitalCommRing [CommRing k] [AddCommSemigroup G] :
     NonUnitalCommRing (AddMonoidAlgebra k G) :=
-  { AddMonoidAlgebra.nonUnitalCommSemiring, AddMonoidAlgebra.nonUnitalRing with }
+  { AddMonoidAlgebra.nonUnitalRing, AddMonoidAlgebra.nonUnitalCommSemiring with }
 
 instance commRing [CommRing k] [AddCommMonoid G] : CommRing (AddMonoidAlgebra k G) :=
-  { AddMonoidAlgebra.nonUnitalCommRing, AddMonoidAlgebra.ring with }
+  { AddMonoidAlgebra.ring, AddMonoidAlgebra.nonUnitalCommRing with }
 
 end AddMonoidAlgebra
 
@@ -1240,7 +1241,7 @@ instance instCommSemiring {R : Type uR} [CommSemiring R] (r : R → R → Prop) 
     mul_comm := sorry }
 
 instance {R : Type uR} [CommRing R] (r : R → R → Prop) : CommRing (RingQuot r) :=
-  { RingQuot.instCommSemiring r, RingQuot.instRing r with }
+  { RingQuot.instRing r, RingQuot.instCommSemiring r with }
 
 instance instAlgebraRingQuot [Algebra S R] (r : R → R → Prop) : Algebra S (RingQuot r) where
   smul := (· • ·)
@@ -1318,6 +1319,6 @@ instance instAlgebra
 
 /- Typeclass synthesis should remain fast when multiple `with` patterns are nested
    Prior to #2478, this requires over 30000 hearbeats. -/
-set_option synthInstance.maxHeartbeats 7000 in
+set_option synthInstance.maxHeartbeats 400 in
 instance instAlgebra' (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M)) :
     Algebra R ((Quot_r R M) ⧸ I) := inferInstance
