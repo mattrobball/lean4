@@ -496,6 +496,10 @@ mutual
     let env ← getEnv
     let fieldNames := getStructureFields env s.structName
     let ref := s.ref.mkSynthetic
+    let filtered := s.source.explicit.foldl (init := []) fun acc source =>
+      if getStructureFields env source.structName|>.any (fun name => acc.any (fun src =>
+        getStructureFields env src.structName|>.contains name)) then acc
+      else source :: acc
     withRef ref do
       let fields ← fieldNames.foldlM (init := []) fun fields fieldName => do
         match findField? s.fields fieldName with
@@ -511,16 +515,6 @@ mutual
             -- this change, the terms resulting from elaboration are larger. Worse, unification
             -- must pull them apart when often, without the eta expansion, that would not be
             -- necessary. This change occurred in #2478.
-            let filtered := s.source.explicit.foldl (init := []) fun acc source =>
-              if getStructureFields env source.structName|>.any (fun name => acc.any (fun src =>
-                getStructureFields env src.structName|>.contains name)) then acc
-              else source :: acc
-              -- let fields := getStructureFields env source.structName|>.data
-              -- let moreFields := acc.map (fun src => getStructureFields env src.structName|>.data) |>.join
-              -- if fields.any (fun name => moreFields.contains name) then
-                -- acc
-              -- else
-                -- source :: acc
             if let some stx := filtered.find? (·.structName == substructName) |>.map (·.stx) then
               addField (FieldVal.term stx)
             -- If one of the sources has the subobject field as a field, use it
