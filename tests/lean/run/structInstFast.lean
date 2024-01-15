@@ -2,25 +2,25 @@ import Lean
 
 /-! This test uses a macro to generate a structure with `depth` nested structures and `width` fields
    at each level. The structure is initialized with `val : α` at every field using the `with` construction pattern.
-   ```
-      structure A0 extends A1 where
-      ...
-      def a0 : A0 := { a1 with xm_1 := val, ..., xm_(width) := val}
-      def a'0: A0 := { a'1 with ...}
-      ...
-      structure A(depth) extends Base where
-      ...
-      structure Base where
-        base_1 : α
-        ...
-      ---
-      def base : Base := ⟨val, ..., val⟩
-    ```
+```
+  structure A0 extends A1 where
+  ...
+  def a0 : A0 := { a1 with xm_1 := val, ..., xm_(width) := val}
+  def a'0: A0 := { a'1 with ...}
+  ...
+  structure A(depth) extends Base where
+  ...
+  structure Base where
+    base_1 : α
+    ...
+  ---
+  def base : Base := ⟨val, ..., val⟩
+```
   The test is then
-  ```
-    set_option maxHeartbeats 200 in
-    example : a0 = a'0 := rfl
-  ```
+```
+  set_option maxHeartbeats 200 in
+  example : a0 = a'0 := rfl
+```
   As this type of unification occurs over and over and over when type checking declarations, it needs
   to be and stay fast. Before #2478, this test took over 700 heartbeats.
 -/
