@@ -169,5 +169,5 @@ instance Field.isDomain [Field K] : IsDomain K :=
 
 end Mathlib.Algebra.Field.Basic
 
-set_option synthInstance.maxHeartbeats 200 in
+set_option synthInstance.maxHeartbeats 400 in
 #synth Zero Int -- works fine

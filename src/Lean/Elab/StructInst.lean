@@ -461,6 +461,31 @@ def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
     | [.fieldName _ n] => n == fieldName
     | _                => false
 
+def getProjTarget? (projFn : Name) : MetaM <| Option Name := do
+  match (← getEnv).find? projFn with
+  | none => return none
+  | some decl =>
+    if let some target := (← forallTelescope decl.type fun _ body => pure body.getForallBody.constName?) then
+      return target
+    else return none
+
+partial def getStructureFieldsFlattenedGoHard (name : Name) (fullNames : Array Name) : TermElabM <| Array Name := do
+  let env ← getEnv
+  match getStructureInfo? env name with
+  | none => return fullNames
+  | some info =>
+    info.fieldInfo.foldlM (init := fullNames) fun fullNames fieldInfo => do
+      match (← getProjTarget? fieldInfo.projFn) with
+      | some target =>
+        if isStructure env target then
+          getStructureFieldsFlattenedGoHard target fullNames
+        else
+          return fullNames.push fieldInfo.fieldName
+      | none => return fullNames
+
+def getStructureFieldsDeep (name : Name) : TermElabM <| Array Name :=
+  getStructureFieldsFlattenedGoHard name #[]
+
 mutual
 
   private partial def groupFields (s : Struct) : TermElabM Struct := do
@@ -505,11 +530,10 @@ mutual
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
-            let downFields := getStructureFieldsFlattened env substructName false
-            let filtered := s.source.explicit.filter fun source =>
-              getStructureFieldsFlattened env source.structName false|>.any (fun name => downFields.contains name)
-            match filtered[0]? with
-            | some src =>
+            let downFields ← getStructureFieldsDeep substructName
+            if let some src ← s.source.explicit.findSomeM? fun source => do
+              let srcFields ← getStructureFieldsDeep source.structName
+              if srcFields.any (fun name => downFields.contains name) then return some source else return none then
               if src.structName == substructName then
                 addField (FieldVal.term src.stx)
               else if let some val ← mkProjStx? src.stx src.structName fieldName then
@@ -518,7 +542,7 @@ mutual
                 let substruct := Struct.mk ref substructName #[] [] s.source
                 let substruct ← expandStruct substruct
                 addField (FieldVal.nested substruct)
-            | none =>
+            else
               let substruct := Struct.mk ref substructName #[] [] s.source
               let substruct ← expandStruct substruct
               addField (FieldVal.nested substruct)
