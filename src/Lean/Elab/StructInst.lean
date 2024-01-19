@@ -505,9 +505,9 @@ mutual
             return { ref, lhs := [FieldLHS.fieldName ref fieldName], val := val } :: fields
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
-            let downFields := getStructureFields env substructName
+            let downFields := getStructureFieldsFlattened env substructName false
             let filtered := s.source.explicit.filter fun source =>
-              getStructureFields env source.structName|>.any (fun name => downFields.contains name)
+              getStructureFieldsFlattened env source.structName false|>.any (fun name => downFields.contains name)
             match filtered[0]? with
             | some src =>
               if src.structName == substructName then
