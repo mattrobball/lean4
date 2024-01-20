@@ -465,7 +465,8 @@ def getProjTarget? (projFn : Name) : MetaM <| Option Name := do
   match (← getEnv).find? projFn with
   | none => return none
   | some decl =>
-    if let some target := (← forallTelescope decl.type fun _ body => pure body.getForallBody.constName?) then
+    if let some target := (← forallTelescope decl.type fun _ body =>
+        pure body.getAppFn.constName?) then
       return target
     else return none
 
@@ -481,7 +482,7 @@ partial def getStructureFieldsFlattenedGoHard (name : Name) (fullNames : Array N
           getStructureFieldsFlattenedGoHard target fullNames
         else
           return fullNames.push fieldInfo.fieldName
-      | none => return fullNames
+      | none => return fullNames.push fieldInfo.fieldName
 
 def getStructureFieldsDeep (name : Name) : TermElabM <| Array Name :=
   getStructureFieldsFlattenedGoHard name #[]
