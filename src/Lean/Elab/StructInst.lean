@@ -507,9 +507,11 @@ mutual
           | some substructName =>
             -- get all leaf fields of `substructName`
             let downFields := getStructureFieldsFlattened env substructName false
-            -- filter out all explicit sources that do not share a leaf field
+            -- filter out all explicit sources that do not share a leaf field keeping
+            -- structure with no fields
             let filtered := s.source.explicit.filter fun source =>
-              getStructureFieldsFlattened env source.structName false|>.any (fun name => downFields.contains name)
+              let sourceFields := getStructureFieldsFlattened env source.structName false
+              sourceFields.any (fun name => downFields.contains name) || sourceFields.isEmpty
             -- take the first such one remaining
             match filtered[0]? with
             | some src =>
