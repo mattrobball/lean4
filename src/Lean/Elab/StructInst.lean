@@ -247,26 +247,33 @@ def Field.isSimple {σ} : Field σ → Bool
   | _                  => false
 
 inductive Struct where
-  /-- Remark: the field `params` is use for default value propagation. It is initially empty, and then set at `elabStruct`. -/
-  | mk (ref : Syntax) (structName : Name) (params : Array (Name × Expr)) (fields : List (Field Struct)) (source : Source)
+  /--
+    Remark: the field `params` is use for default value propagation. It is initially empty, and then set at `elabStruct`.
+
+    `inst` is used to store a supplied instance of the structure.
+  -/
+  | mk (ref : Syntax) (inst : Option Syntax) (structName : Name) (params : Array (Name × Expr)) (fields : List (Field Struct)) (source : Source)
   deriving Inhabited
 
 abbrev Fields := List (Field Struct)
 
 def Struct.ref : Struct → Syntax
-  | ⟨ref, _, _, _, _⟩ => ref
+  | ⟨ref, _, _, _, _, _⟩ => ref
+
+def Struct.inst : Struct → Option Syntax
+  | ⟨_, inst, _, _, _, _⟩ => inst
 
 def Struct.structName : Struct → Name
-  | ⟨_, structName, _, _, _⟩ => structName
+  | ⟨_, _, structName, _, _, _⟩ => structName
 
 def Struct.params : Struct → Array (Name × Expr)
-  | ⟨_, _, params, _, _⟩ => params
+  | ⟨_, _, _, params, _, _⟩ => params
 
 def Struct.fields : Struct → Fields
-  | ⟨_, _, _, fields, _⟩ => fields
+  | ⟨_, _, _, _, fields, _⟩ => fields
 
 def Struct.source : Struct → Source
-  | ⟨_, _, _, _, s⟩ => s
+  | ⟨_, _, _, _, _, s⟩ => s
 
 /-- `true` iff all fields of the given structure are marked as `default` -/
 partial def Struct.allDefault (s : Struct) : Bool :=
@@ -283,7 +290,7 @@ def formatField (formatStruct : Struct → Format) (field : Field Struct) : Form
     | .default  => "<default>"
 
 partial def formatStruct : Struct → Format
-  | ⟨_, _,          _, fields, source⟩ =>
+  | ⟨_, _, _, _, fields, source⟩ =>
     let fieldsFmt := Format.joinSep (fields.map (formatField formatStruct)) ", "
     let implicitFmt := if source.implicit.isSome then " .. " else ""
     if source.explicit.isEmpty then
@@ -352,11 +359,11 @@ private def mkStructView (stx : Syntax) (structName : Name) (source : Source) : 
     let first    ← toFieldLHS fieldStx[0][0]
     let rest     ← fieldStx[0][1].getArgs.toList.mapM toFieldLHS
     return { ref := fieldStx, lhs := first :: rest, val := FieldVal.term val : Field Struct }
-  return ⟨stx, structName, #[], fields, source⟩
+  return ⟨stx, none, structName, #[], fields, source⟩
 
 def Struct.modifyFieldsM {m : Type → Type} [Monad m] (s : Struct) (f : Fields → m Fields) : m Struct :=
   match s with
-  | ⟨ref, structName, params, fields, source⟩ => return ⟨ref, structName, params, (← f fields), source⟩
+  | ⟨ref, inst, structName, params, fields, source⟩ => return ⟨ref, inst, structName, params, (← f fields), source⟩
 
 def Struct.modifyFields (s : Struct) (f : Fields → Fields) : Struct :=
   Id.run <| s.modifyFieldsM f
@@ -366,7 +373,7 @@ def Struct.setFields (s : Struct) (fields : Fields) : Struct :=
 
 def Struct.setParams (s : Struct) (ps : Array (Name × Expr)) : Struct :=
   match s with
-  | ⟨ref, structName, _, fields, source⟩ => ⟨ref, structName, ps, fields, source⟩
+  | ⟨ref, inst, structName, _, fields, source⟩ => ⟨ref, inst, structName, ps, fields, source⟩
 
 private def expandCompositeFields (s : Struct) : Struct :=
   s.modifyFields fun fields => fields.map fun field => match field with
@@ -470,7 +477,7 @@ def getProjTarget? (projFn : Name) : MetaM <| Option Name := do
       return target
     else return none
 
-partial def getStructureFieldsFlattenedGoHard (name : Name) (fullNames : Array Name) : TermElabM <| Array Name := do
+partial def getStructureFieldsDeepAux (name : Name) (fullNames : Array Name) : TermElabM <| Array Name := do
   let env ← getEnv
   match getStructureInfo? env name with
   | none => return fullNames
@@ -479,13 +486,34 @@ partial def getStructureFieldsFlattenedGoHard (name : Name) (fullNames : Array N
       match (← getProjTarget? fieldInfo.projFn) with
       | some target =>
         if isStructure env target then
-          getStructureFieldsFlattenedGoHard target fullNames
+          getStructureFieldsDeepAux target fullNames
         else
           return fullNames.push fieldInfo.fieldName
       | none => return fullNames.push fieldInfo.fieldName
 
 def getStructureFieldsDeep (name : Name) : TermElabM <| Array Name :=
-  getStructureFieldsFlattenedGoHard name #[]
+  getStructureFieldsDeepAux name #[]
+
+def fieldsOverlap? (source : ExplicitSourceInfo) (fieldNames : Array Name) :  TermElabM <| Bool := do
+  let srcFields ← getStructureFieldsDeep source.structName
+  return srcFields.any (fun name => fieldNames.contains name) || srcFields.isEmpty
+
+def fillTopInst (s : Struct) : TermElabM Struct := do
+  match s with
+  | s@⟨ref, opt, structName, params, fields, source⟩ =>
+    if !fields.isEmpty then return s else
+    if let some _ := opt then return s else
+    let downFields ← getStructureFieldsDeep structName
+    if let some src ← source.explicit.findM? <| fun src => fieldsOverlap? src downFields then
+      if src.structName == structName then
+        return ⟨ref, some src.stx, structName, params, fields, source⟩
+      else
+        let fieldName := structName.appendBefore "to"
+        if let some val ← mkProjStx? src.stx structName fieldName then
+        return ⟨ref, some val, structName, params, fields, source⟩
+        else return s
+    else
+    return s
 
 mutual
 
@@ -502,7 +530,7 @@ mutual
           let field := fields.head!
           match Lean.isSubobjectField? env s.structName fieldName with
           | some substructName =>
-            let substruct := Struct.mk s.ref substructName #[] substructFields s.source
+            let substruct := Struct.mk s.ref none substructName #[] substructFields s.source
             let substruct ← expandStruct substruct
             pure { field with lhs := [field.lhs.head!], val := FieldVal.nested substruct }
           | none =>
@@ -542,11 +570,11 @@ mutual
                 addField (FieldVal.term val)
               -- else eta expand and try again
               else
-                let substruct := Struct.mk ref substructName #[] [] s.source
+                let substruct := Struct.mk ref none substructName #[] [] s.source
                 let substruct ← expandStruct substruct
                 addField (FieldVal.nested substruct)
             else
-              let substruct := Struct.mk ref substructName #[] [] s.source
+              let substruct := Struct.mk ref none substructName #[] [] s.source
               let substruct ← expandStruct substruct
               addField (FieldVal.nested substruct)
           | none =>
@@ -563,6 +591,7 @@ mutual
     let s ← expandNumLitFields s
     let s ← expandParentFields s
     let s ← groupFields s
+    let s ← fillTopInst s
     addMissingFields s
 
 end
@@ -679,6 +708,10 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
               cont (markDefaultMissing val) field
       | _ => withRef field.ref <| throwFailedToElabField fieldName s.structName m!"unexpected constructor type{indentExpr type}"
     | _ => throwErrorAt field.ref "unexpected unexpanded structure field"
+  if let some val := s.inst then
+    let val ← elabTermEnsuringType val expectedType?
+    return { val := val, struct := s.setFields fields.reverse |>.setParams params, instMVars }
+  else
   return { val := e, struct := s.setFields fields.reverse |>.setParams params, instMVars }
 
 namespace DefaultFields
