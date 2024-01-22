@@ -665,6 +665,10 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
   let ctorVal := getStructureCtor env s.structName
   if isPrivateNameFromImportedModule env ctorVal.name then
     throwError "invalid \{...} notation, constructor for `{s.structName}` is marked as private"
+  if let some val := s.inst then
+    let val ← elabTermEnsuringType val expectedType?
+    return { val := val, struct := s, instMVars := #[] }
+  else
   -- We store the parameters at the resulting `Struct`. We use this information during default value propagation.
   let { ctorFn, ctorFnType, params, .. } ← mkCtorHeader ctorVal expectedType?
   let (e, _, fields, instMVars) ← s.fields.foldlM (init := (ctorFn, ctorFnType, [], #[])) fun (e, type, fields, instMVars) field => do
@@ -708,10 +712,6 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
               cont (markDefaultMissing val) field
       | _ => withRef field.ref <| throwFailedToElabField fieldName s.structName m!"unexpected constructor type{indentExpr type}"
     | _ => throwErrorAt field.ref "unexpected unexpanded structure field"
-  if let some val := s.inst then
-    let val ← elabTermEnsuringType val expectedType?
-    return { val := val, struct := s.setFields fields.reverse |>.setParams params, instMVars }
-  else
   return { val := e, struct := s.setFields fields.reverse |>.setParams params, instMVars }
 
 namespace DefaultFields
