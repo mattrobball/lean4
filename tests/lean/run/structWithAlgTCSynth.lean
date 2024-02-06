@@ -1243,7 +1243,7 @@ instance instCommSemiring {R : Type uR} [CommSemiring R] (r : R → R → Prop) 
   { RingQuot.instSemiring r with
     mul_comm := sorry }
 
-instance {R : Type uR} [CommRing R] (r : R → R → Prop) : CommRing (RingQuot r) :=
+instance instCommRing {R : Type uR} [CommRing R] (r : R → R → Prop) : CommRing (RingQuot r) :=
   { RingQuot.instRing r, RingQuot.instCommSemiring r with }
 
 instance instAlgebraRingQuot [Algebra S R] (r : R → R → Prop) : Algebra S (RingQuot r) where
@@ -1311,7 +1311,7 @@ instance : Semiring (Quot_r R M) :=
   RingQuot.instSemiring _
 
 instance {S : Type w} [CommRing S] : CommRing (Quot_r S M) :=
-  RingQuot.instCommRingRingQuotToSemiringToCommSemiring _
+  RingQuot.instCommRing _
 
 instance instAlgebra
     {R A M} [CommSemiring R] [CommRing A] [Algebra R A] :
@@ -1325,6 +1325,7 @@ Typeclass synthesis should remain fast when multiple `with` patterns are nested
 
 Prior to #2478, this requires over 30000 hearbeats.
 -/
-set_option synthInstance.maxHeartbeats 400 in
+set_option synthInstance.maxHeartbeats 0 in
+set_option maxHeartbeats 0 in
 instance instAlgebra' (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M)) :
     Algebra R ((Quot_r R M) ⧸ I) := inferInstance
