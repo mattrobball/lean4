@@ -754,7 +754,7 @@ private def setSourceInstImplicit (type : Expr) : Expr :=
       type.updateForall! .instImplicit d b
   | _ => unreachable!
 
-private partial def mkCoercionToCopiedParent (levelParams : List Name) (params : Array Expr) (view : StructView) (parentType : Expr) : MetaM Unit := do
+private partial def mkCoercionToCopiedParent (levelParams : List Name) (params : Array Expr) (view : StructView) (parentType : Expr) (prio : Nat) : MetaM Unit := do
   let env ← getEnv
   let structName := view.declName
   let sourceFieldNames := getStructureFieldsFlattened env structName
@@ -794,7 +794,7 @@ private partial def mkCoercionToCopiedParent (levelParams : List Name) (params :
       safety      := if view.modifiers.isUnsafe then DefinitionSafety.unsafe else DefinitionSafety.safe
     }
     if binfo.isInstImplicit then
-      addInstance declName AttributeKind.global (eval_prio default)
+      addInstance declName AttributeKind.global prio
     else
       setReducibleAttribute declName
 
@@ -849,8 +849,8 @@ private def elabStructureView (view : StructView) : TermElabM Unit := do
               Term.addTermInfo' field.ref (← mkConstWithLevelParams field.declName) (isBinder := true)
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
         let projInstances := instParents.toList.map fun info => info.declName
-        projInstances.forM fun declName => addInstance declName AttributeKind.global (eval_prio default)
-        copiedParents.forM fun parent => mkCoercionToCopiedParent levelParams params view parent
+        projInstances.forM fun declName => addInstance declName AttributeKind.global 150
+        copiedParents.forM fun parent => mkCoercionToCopiedParent levelParams params view parent 100
         let lctx ← getLCtx
         let fieldsWithDefault := fieldInfos.filter fun info => info.value?.isSome
         let defaultAuxDecls ← fieldsWithDefault.mapM fun info => do
