@@ -1,9 +1,9 @@
 def b : B :=
-let __src := a;
-{ toA := __src }
+let _red_src := a;
+{ toA := _red_src }
 def c : C :=
-let __src := a;
-{ toB := { toA := __src } }
+let _red_src := a;
+{ toB := { toA := _red_src } }
 def d : D :=
-let __src := c;
-{ toB := __src.toB }
+let _red_src := c;
+{ toB := _red_src.toB }
