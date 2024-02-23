@@ -123,6 +123,15 @@ def isInternalOrNum : Name → Bool
   | _       => false
 
 /--
+Checks where the name is zeta-reducible.
+-/
+def isReducible : Name → Bool
+  | str anonymous s => s.startsWith "_red_"
+  | num p _ => p.isReducible
+  | str p _ => p.isReducible
+  | anonymous => false
+
+/--
 Checks whether the name is an implementation-detail hypothesis name.
 
 Implementation-detail hypothesis names start with a double underscore.

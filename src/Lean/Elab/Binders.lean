@@ -67,6 +67,8 @@ The `__x` in `let __x := 42; body` gets kind `.implDetail`.
 def kindOfBinderName (binderName : Name) : LocalDeclKind :=
   if binderName.isImplementationDetail then
     .implDetail
+  else if binderName.isReducible then
+    .reducible
   else
     .default
 

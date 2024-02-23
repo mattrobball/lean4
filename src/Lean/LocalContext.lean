@@ -23,6 +23,10 @@ inductive LocalDeclKind
   -/
   | default
   /--
+  Like default but zeta-reduces as default behavior.
+  -/
+  | reducible
+  /--
   Invisible to type class search or tactics, and hidden in the goal display.
 
   This kind is used for temporary variables in macros.
@@ -110,7 +114,10 @@ Is the local declaration an implementation-detail hypothesis
 (including auxiliary declarations)?
 -/
 def isImplementationDetail (d : LocalDecl) : Bool :=
-  d.kind != .default
+  d.kind != .default && d.kind != .reducible
+
+def isReducible (d : LocalDecl) : Bool :=
+  d.kind == .reducible
 
 def value? : LocalDecl → Option Expr
   | cdecl ..              => none

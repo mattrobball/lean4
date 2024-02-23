@@ -95,9 +95,9 @@ where
           def y : B := { x with b := 37, w := by simp }
           ```
           -/
-          let sourceNew ← `(__src)
+          let sourceNew ← `(_red_src)
           let r ← go sources (sourcesNew.push sourceNew)
-          `(let __src := $source; $r)
+          `(let _red_src := $source; $r)
 
 structure ExplicitSourceInfo where
   stx        : Syntax
