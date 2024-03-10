@@ -485,15 +485,15 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
   let fieldNames := getStructureFieldsFlattened env s.structName (includeSubobjectFields := false)
   for field in s.fields do
     if let [.fieldName _ n] := field.lhs then
-        logInfo m!"field {n}"
+        -- logInfo m!"field {n}"
         unless !fieldNames.contains n do
         if let some parentName := Lean.findField? env s.structName n then
-          logInfo m!"parent {parentName} and structure {s.structName}"
+          -- logInfo m!"parent {parentName} and structure {s.structName}"
           if parentName != s.structName then
               if let some decl := env.find? <| parentName ++ n then
                 let sort ← inferType decl.type
                 unless sort.isProp do
-                trace[Elab.coveredFields]"field {n} is uncovered in {s.structName}\n
+                trace[Elab.StructInst.coveredFields]"Data field {n} is uncovered in {s.structName}\n
                   It might be better to declare an instance of {parentName} first."
   return ()
 
@@ -974,6 +974,6 @@ private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (sour
       elabStructInstAux stx expectedType? sourceView
 
 builtin_initialize registerTraceClass `Elab.struct
-builtin_initialize registerTraceClass `Elab.coveredFields
+builtin_initialize registerTraceClass `Elab.StructInst.coveredFields
 
 end Lean.Elab.Term.StructInst
