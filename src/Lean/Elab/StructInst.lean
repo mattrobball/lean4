@@ -480,6 +480,24 @@ def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
     | [.fieldName _ n] => n == fieldName
     | _                => false
 
+def uncoveredDataField (s : Struct) : TermElabM Unit := do
+  let env ← getEnv
+  for field in s.fields do
+    match field.val with
+    | .term stx =>
+      let type ← inferType (← elabTerm stx none)
+      if type.isProp then return ()
+      else
+        match field.lhs with
+        | [.fieldName _ n] =>
+          match Lean.isSubobjectField? env s.structName n with
+          | some parent =>
+              logInfo m!"field {n} is uncovered in {s.structName}\n
+              It might be better to declare an instance of {parent} first."
+          | none => return ()
+        | _ => return ()
+    | _ => return ()
+
 mutual
 
   private partial def groupFields (s : Struct) : TermElabM Struct := do
@@ -571,6 +589,7 @@ mutual
     let s ← expandNumLitFields s
     let s ← expandParentFields s
     let s ← groupFields s
+    let _ ← uncoveredDataField s
     addMissingFields s
 
 end
@@ -660,6 +679,7 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
           let type  := b.instantiate1 val
           let field := { field with expr? := some val }
           return (e, type, field::fields, instMVars)
+        let _ ← inferType d
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
