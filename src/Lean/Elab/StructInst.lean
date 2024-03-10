@@ -485,10 +485,11 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
   let fieldNames := getStructureFieldsFlattened env s.structName (includeSubobjectFields := false)
   for field in s.fields do
     if let [.fieldName _ n] := field.lhs then
-        logInfo m!"field {n} vs {fieldNames}"
+        -- logInfo m!"field {n} vs {fieldNames}"
+        logInfo m!"field {n}"
         unless !fieldNames.contains n do
         if let some parentName := Lean.findField? env s.structName n then
-          logInfo m!"parent {parentName}"
+          logInfo m!"parent {parentName} and structure {s.structName}"
           if parentName != s.structName then
             if let .term stx := field.val then
               let type ← inferType (← elabTerm stx none)
