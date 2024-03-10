@@ -489,8 +489,7 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
         if let some parent := Lean.isSubobjectField? env s.structName n then
           if let .term stx := field.val then
             let type ← inferType (← elabTerm stx none)
-            if type.isProp then return ()
-            else
+            unless type.isProp do
             logInfo m!"field {n} is uncovered in {s.structName}\n
               It might be better to declare an instance of {parent} first."
   return ()
