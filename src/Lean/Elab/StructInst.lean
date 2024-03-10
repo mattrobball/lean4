@@ -591,7 +591,7 @@ mutual
     let s ← expandNumLitFields s
     let s ← expandParentFields s
     let s ← groupFields s
-    let _ ← uncoveredDataField s
+    -- let _ ← uncoveredDataField s
     addMissingFields s
 
 end
