@@ -493,7 +493,9 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
               if let some decl := env.find? <| parentName ++ n then
                 let sort ← inferType decl.type
                 unless sort.isProp do
-                trace[Elab.StructInst.coveredFields]"Data field {n} is uncovered in {s.structName}\n
+                let module := env.header.mainModule
+                trace[Elab.StructInst.coveredFields]
+                  "In {module}, data field {n} is uncovered in {s.structName}.
                   It might be better to declare an instance of {parentName} first."
   return ()
 
