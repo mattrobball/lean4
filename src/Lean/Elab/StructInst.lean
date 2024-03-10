@@ -487,14 +487,15 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
     if let [.fieldName _ n] := field.lhs then
         logInfo m!"field {n} vs {fieldNames}"
         unless !fieldNames.contains n do
-        if let some parent := Lean.isSubobjectField? env s.structName n then
-          logInfo m!"parent {parent}"
-          if let .term stx := field.val then
-            let type ← inferType (← elabTerm stx none)
-            logInfo m!"type {type}"
-            unless type.isProp do
-            logInfo m!"field {n} is uncovered in {s.structName}\n
-              It might be better to declare an instance of {parent} first."
+        if let some info := Lean.getFieldInfo? env s.structName n then
+          if let some parent := info.subobject? then
+            logInfo m!"parent {parent}"
+            if let .term stx := field.val then
+              let type ← inferType (← elabTerm stx none)
+              logInfo m!"type {type}"
+              unless type.isProp do
+              logInfo m!"field {n} is uncovered in {s.structName}\n
+                It might be better to declare an instance of {parent} first."
   return ()
 
 mutual
