@@ -681,7 +681,6 @@ private partial def elabStruct (s : Struct) (expectedType? : Option Expr) : Term
           let type  := b.instantiate1 val
           let field := { field with expr? := some val }
           return (e, type, field::fields, instMVars)
-        let _ ← inferType d
         match field.val with
         | .term stx => cont (← elabTermEnsuringType stx d.consumeTypeAnnotations) field
         | .nested s =>
