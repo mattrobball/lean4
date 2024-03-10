@@ -482,6 +482,7 @@ def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
 
 def uncoveredDataField (s : Struct) : TermElabM Unit := do
   let env ← getEnv
+  let fieldNames := getStructureFields env s.structName
   for field in s.fields do
     match field.val with
     | .term stx =>
@@ -490,6 +491,7 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
       else
         match field.lhs with
         | [.fieldName _ n] =>
+          if !fieldNames.contains n then return () else
           match Lean.isSubobjectField? env s.structName n with
           | some parent =>
               logInfo m!"field {n} is uncovered in {s.structName}\n
