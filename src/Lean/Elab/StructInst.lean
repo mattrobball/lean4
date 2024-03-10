@@ -482,7 +482,7 @@ def findField? (fields : Fields) (fieldName : Name) : Option (Field Struct) :=
 
 def uncoveredDataField (s : Struct) : TermElabM Unit := do
   let env ← getEnv
-  let fieldNames := getStructureFields env s.structName
+  let fieldNames := getStructureFieldsFlattened env s.structName
   for field in s.fields do
     if let [.fieldName _ n] := field.lhs then
         unless !fieldNames.contains n do
