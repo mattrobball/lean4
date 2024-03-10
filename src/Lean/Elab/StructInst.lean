@@ -590,7 +590,6 @@ mutual
     let s ← expandNumLitFields s
     let s ← expandParentFields s
     let s ← groupFields s
-    let _ ← uncoveredDataField s
     addMissingFields s
 
 end
@@ -940,6 +939,7 @@ end DefaultFields
 private def elabStructInstAux (stx : Syntax) (expectedType? : Option Expr) (source : Source) : TermElabM Expr := do
   let structName ← getStructName expectedType? source
   let struct ← liftMacroM <| mkStructView stx structName source
+  let _ ← uncoveredDataField struct
   let struct ← expandStruct struct
   trace[Elab.struct] "{struct}"
   /- We try to synthesize pending problems with `withSynthesize` combinator before trying to use default values.
