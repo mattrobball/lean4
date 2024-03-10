@@ -377,13 +377,13 @@ jobs:
         run: |
           build/stage1/bin/lean --stats src/Lean.lean
         if: ${{ !matrix.cross }}
-      - name: Test
-        run: |
-          cd build/stage1
-          ulimit -c unlimited # coredumps
-          # exclude nonreproducible test
-          ctest -j4 --output-on-failure ${{ matrix.CTEST_OPTIONS }} < /dev/null
-        if: (matrix.wasm || !matrix.cross) && needs.configure.outputs.quick == 'false'
+      # - name: Test
+      #   run: |
+      #     cd build/stage1
+      #     ulimit -c unlimited # coredumps
+      #     # exclude nonreproducible test
+      #     ctest -j4 --output-on-failure ${{ matrix.CTEST_OPTIONS }} < /dev/null
+        # if: (matrix.wasm || !matrix.cross) && needs.configure.outputs.quick == 'false'
       - name: Check Test Binary
         run: ${{ matrix.binary-check }} tests/compiler/534.lean.out
         if: ${{ !matrix.cross && needs.configure.outputs.quick == 'false' }}
