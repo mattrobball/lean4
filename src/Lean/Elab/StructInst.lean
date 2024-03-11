@@ -489,7 +489,10 @@ def uncoveredDataField (s : Struct) : TermElabM Unit := do
         unless !fieldNames.contains n do
         if let some parentName := Lean.findField? env s.structName n then
           -- logInfo m!"parent {parentName} and structure {s.structName}"
-          if parentName != s.structName then
+          let blacklisted := [`Lean.ConstantVal, `IO.Process.StdioConfig, `Lean.AttributeImplCore,
+            `Lean.Meta.SolveByElim.ApplyRulesConfig, `SelectInsertParams,
+            `Lean.Meta.Tactic.Backtrack.BacktrackConfig, `Lean.Elab.ElabInfo]
+          if parentName != s.structName && !blacklisted.contains parentName then
               if let some decl := env.find? <| parentName ++ n then
                 let sort ← inferType decl.type
                 unless sort.isProp do
