@@ -312,7 +312,7 @@ structure Context where
   When `Config.univApprox := true`, this flag is set to `true` when there is no
   progress processing universe constraints.
   -/
-  univApprox        : Bool := true
+  univApprox        : Bool := false
 
 abbrev MetaM  := ReaderT Context $ StateRefT State CoreM
 
