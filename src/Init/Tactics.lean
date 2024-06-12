@@ -293,6 +293,9 @@ syntax (name := done) "done" : tactic
 /-- `trace_state` displays the current state in the info view. -/
 syntax (name := traceState) "trace_state" : tactic
 
+/-- `discr_key_tree ts*` displays the discriminator key tree of `ts` or the main goal. -/
+syntax (name := discrKeyTree) "discr_key_tree" (ppSpace term)* : tactic
+
 /-- `trace msg` displays `msg` in the info view. -/
 syntax (name := traceMessage) "trace " str : tactic
 
