@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2024 Matthew Robert Ballard. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Thomas Skrivan, Matthew Robert Ballard
+Authors: Tomas Skrivan, Matthew Robert Ballard
 -/
 prelude
 import Init.Tactics
