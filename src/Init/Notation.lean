@@ -690,7 +690,7 @@ syntax (name := checkSimpFailure) "#check_simp " term "!~>" : command
 /--
 #discr_tree_key t prints the discriminant tree key for `t`.
 -/
-syntax (name := discrTreeKeyCmd) "#discr_tree_key " (term <|> ident) : command
+syntax (name := discrTreeKeyCmd) "#discr_tree_key " term : command
 
 /--
 The `seal foo` command ensures that the definition of `foo` is sealed, meaning it is marked as `[irreducible]`.

@@ -8,45 +8,52 @@ import Init.Tactics
 import Lean.Elab.Command
 import Lean.Meta.Tactic.Simp.SimpTheorems
 
-open Lean Meta
+namespace Lean.Elab.Tactic.DiscrTreeKey
 
-namespace Lean.Elab
+open Lean Meta Elab Term Tactic DiscrTree --Meta Elab Term DiscrTree
 
-def discrKey (e : Expr) : MetaM (Array DiscrTree.Key) := do
+private def mkKey (e : Expr) : MetaM (Array Key) := do
   let (_, _, type) ← withReducible <| forallMetaTelescopeReducing e
   let type ← whnfR type
   match type.eq? with
   | some (_, lhs, _) => DiscrTree.mkPath lhs simpDtConfig
   | none => throwError "unexpected kind of 'simp' theorem{indentExpr type}"
 
-end Lean.Elab
+open Lean.Parser
 
-namespace Lean.Elab.Command
-
-open Elab Term
-
-@[builtin_command_elab Lean.Parser.discrTreeKeyCmd] def elabDiscrKeyTree : CommandElab := fun stx =>
-  Command.liftTermElabM <| do
+@[builtin_command_elab discrTreeKeyCmd]
+def evalDiscrTreeKeyCmd : Elab.Command.CommandElab := fun stx => do
+  Elab.Command.liftTermElabM <| do
     match stx with
-    | `(command| #discr_tree_key $t:term) =>
-      let e ← elabTerm t none
-      let msgdata ← (← discrKey e).keysAsPattern
-      IO.println ((← discrKey e).map fun key => key.format)
-      return ()
-    -- | `(command| #discr_tree_key $id:ident) => do return ()
-      -- let info ← getConstInfo ide.getId
-      -- IO.println ((← discrKey info.type).map fun key => key.format)
-    | _                        => throwUnsupportedSyntax
+    | `(command| #discr_tree_key $t:term) => do
+      if let `($id:ident) := t then
+        let info ← getConstInfo id.getId
+        let msgdata ← keysAsPattern <| ← mkKey info.type
+        logInfo msgdata
+      else
+      let e ← Elab.Term.elabTerm t none
+      let msgdata ← keysAsPattern <| ← mkKey e
+      logInfo msgdata
+    | _                        => Elab.throwUnsupportedSyntax
 
-end Lean.Elab.Command
+open Lean.Parser.Tactic
 
-#synth Format (DiscrTree.Key)
+@[builtin_tactic discrTreeKeyTac]
+def evalDiscrTreeKeyTac : Tactic := fun stx => do
+  match stx with
+  | `(tactic| discr_tree_key) =>
+    let e ← getMainGoal
+    let keys ← DiscrTree.keysAsPattern <| ← mkKey (← e.getType)
+    logInfo keys
+  | `(tactic| discr_tree_key $t:term) =>
+    let e ← Term.elabTerm t none
+    logInfo (← keysAsPattern <| ← mkKey e)
+  | _                        => throwUnsupportedSyntax
 
-namespace Lean.Elab.Tactic
+private theorem foo (n : Nat) : n = n := by
+  discr_tree_key
+  rfl
 
-@[builtin_tactic Lean.Parser.Tactic.discrTreeKeyTac] def elabDiscrTreeKey : Tactic := fun _ => do
-  let e ← getMainGoal
-  let keys ← discrKey (← e.getType)
-  logInfo s!"{keys.map fun key => key.format}"
+#discr_tree_key foo
 
-end Lean.Elab.Tactic
+end Lean.Elab.Tactic.DiscrTreeKey
