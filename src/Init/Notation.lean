@@ -688,6 +688,11 @@ syntax (name := checkSimp) "#check_simp " term "~>" term : command
 syntax (name := checkSimpFailure) "#check_simp " term "!~>" : command
 
 /--
+#discr_tree_key t prints the discrimination tree key for `t`.
+-/
+syntax (name := discrTreeKeyCmd) "#discr_tree_key " term : command
+
+/--
 The `seal foo` command ensures that the definition of `foo` is sealed, meaning it is marked as `[irreducible]`.
 This command is particularly useful in contexts where you want to prevent the reduction of `foo` in proofs.
 
