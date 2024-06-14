@@ -1,5 +1,11 @@
 universe u
 
+def bar (_ _ : Nat) : Nat := default
+
+#discr_tree_key (∀ {a n : Nat}, bar a (OfNat.ofNat n) = default)
+#discr_tree_key (∀ {a n : Nat}, bar a (no_index OfNat.ofNat n) = default)
+#discr_tree_key (∀ {a n : Nat}, bar a (no_index (OfNat.ofNat n)) = default)
+
 variable (α : Type u) [Add α]
 
 class AddSemigroup (α : Type u) extends Add α where

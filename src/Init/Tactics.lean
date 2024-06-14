@@ -933,8 +933,8 @@ example : False ∨ True := by
 -/
 syntax (name := dbgTrace) "dbg_trace " str : tactic
 
-/-- `discr_key_tree t?` displays the discrimination tree key of `t` or the main goal.
-Useful for debugging `simp` failures. -/
+/-- `discr_key_tree t?` displays the discrimination tree key of `t`, for a `ident` or a `term`,
+or the main goal. Useful for debugging `simp` failures. -/
 syntax (name := discrTreeKeyTac) "discr_tree_key " (ppSpace colGt term)? : tactic
 
 /--
