@@ -38,7 +38,7 @@ variable (β : Type u) [AddSemigroup β]
 
 instance : AddSemigroup (Wrapper β) where
   add_assoc _ _ _ := congrArg Wrapper.mk (by
-    discr_tree_key AddSemigroup.add_assoc
+    discr_tree_key add_assoc
     discr_tree_key
     fail_if_success simp [add_assoc]
     sorry)
