@@ -1,8 +1,56 @@
-theorem liftOn_mk (a : α) (f : α → γ) (h : ∀ a₁ a₂, r a₁ a₂ → f a₁ = f a₂) :
-    Quot.liftOn (Quot.mk r a) f h = f a := rfl
+universe u
 
-#discr_tree_key liftOn_mk
+variable (α : Type u) [Add α]
 
-example (n : Nat) : n = n := by
-  discr_tree_key
-  rfl
+class AddSemigroup (α : Type u) extends Add α where
+  add_assoc : ∀ (a b c : α), a + b + c = a + (b + c)
+
+#discr_tree_key AddSemigroup.add_assoc
+
+structure Wrapper (α : Type u) where
+  val : α
+
+namespace Foo
+
+scoped instance foo : Add (Wrapper α) where
+  add x y := ⟨x.val + y.val⟩
+
+end Foo
+
+namespace Bar
+
+scoped instance bar : Add (Wrapper α) where
+  add := fun ⟨x⟩ ⟨y⟩ => ⟨x + y⟩
+
+end Bar
+
+section
+
+open Foo AddSemigroup
+
+variable (β : Type u) [AddSemigroup β]
+
+instance : AddSemigroup (Wrapper β) where
+  add_assoc _ _ _ := congrArg Wrapper.mk (by
+    discr_tree_key AddSemigroup.add_assoc
+    discr_tree_key
+    fail_if_success simp [add_assoc]
+    sorry)
+
+end
+
+section
+
+open Bar AddSemigroup
+
+variable (β : Type u) [AddSemigroup β]
+
+instance : AddSemigroup (Wrapper β) where
+  add_assoc _ _ _ := congrArg Wrapper.mk (by
+    have (b : β) : b = b := rfl
+    discr_tree_key this
+    discr_tree_key AddSemigroup.add_assoc
+    discr_tree_key
+    simp [add_assoc])
+end
+

@@ -44,6 +44,11 @@ def evalDiscrTreeKeyTac : Tactic := fun stx => do
     let keys ← DiscrTree.keysAsPattern <| ← mkKey (← e.getType)
     logInfo keys
   | `(tactic| discr_tree_key $t:term) =>
+    if let `($id:ident) := t then
+      let info ← getConstInfo id.getId
+      let msgdata ← keysAsPattern <| ← mkKey info.type
+      logInfo msgdata
+    else
     let e ← Term.elabTerm t none
     logInfo (← keysAsPattern <| ← mkKey e)
   | _                        => throwUnsupportedSyntax
