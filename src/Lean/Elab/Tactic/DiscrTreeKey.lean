@@ -47,7 +47,6 @@ def evalDiscrTreeKeyTac : Tactic := fun stx => do
     withMainContext do
       if let `($id:ident) := t then
         if let some ldecl := (← getLCtx).findFromUserName? id.getId then
-          logInfo ldecl.type
           let msgdata ← keysAsPattern <| ← mkKey ldecl.type
           logInfo msgdata
         else
