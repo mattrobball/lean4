@@ -688,7 +688,8 @@ syntax (name := checkSimp) "#check_simp " term "~>" term : command
 syntax (name := checkSimpFailure) "#check_simp " term "!~>" : command
 
 /--
-#discr_tree_key t prints the discrimination tree key for `t`.
+#discr_tree_key t prints the discrimination tree key for the term `t`, or if `t`
+is an identifier, for its type.
 -/
 syntax (name := discrTreeKeyCmd) "#discr_tree_key " term : command
 
