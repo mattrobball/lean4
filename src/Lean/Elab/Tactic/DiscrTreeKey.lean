@@ -27,7 +27,7 @@ def evalDiscrTreeKeyCmd : CommandElab := fun stx => do
     match stx with
     | `(command| #discr_tree_key $t:term) => do
       if let `($id:ident) := t then
-        let info ← getConstInfo id.getId
+        let info ← getConstInfo (← realizeGlobalConstNoOverloadWithInfo id)
         let msgdata ← keysAsPattern <| ← mkKey info.type
         logInfo msgdata
       else
