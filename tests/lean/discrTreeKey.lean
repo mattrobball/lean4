@@ -47,9 +47,8 @@ variable (β : Type u) [AddSemigroup β]
 
 instance : AddSemigroup (Wrapper β) where
   add_assoc _ _ _ := congrArg Wrapper.mk (by
-    have (b : β) : b = b := rfl
+    have (b₁ b₂ b₃ : β) : b₁ + b₂ + b₃ = b₁ + (b₂ + b₃) := add_assoc _ _ _
     discr_tree_key this
-    discr_tree_key AddSemigroup.add_assoc
     discr_tree_key
     simp [add_assoc])
 end

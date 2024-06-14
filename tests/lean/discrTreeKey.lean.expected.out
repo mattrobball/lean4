@@ -2,5 +2,6 @@
 @HAdd.hAdd _ _ _ _ (@HAdd.hAdd _ _ _ _ _ _) _
 @HAdd.hAdd β β β _ (@HAdd.hAdd (Wrapper β) (Wrapper β) (Wrapper β) _ x✝² x✝¹).1 x✝.1
 discrTreeKey.lean:33:0-33:8: warning: declaration uses 'sorry'
-@HAdd.hAdd _ _ _ _ (@HAdd.hAdd _ _ _ _ _ _) _
+∀ (b₁ b₂ b₃ : β), b₁ + b₂ + b₃ = b₁ + (b₂ + b₃)
+@HAdd.hAdd β β β _ (@HAdd.hAdd β β β _ _ _) _
 @HAdd.hAdd β β β _ (@HAdd.hAdd β β β _ x✝².1 x✝¹.1) x✝.1
