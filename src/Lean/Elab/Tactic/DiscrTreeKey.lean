@@ -31,9 +31,9 @@ def evalDiscrTreeKeyCmd : CommandElab := fun stx => do
         let msgdata ← keysAsPattern (← mkKey info.type)
         logInfo msgdata
       else
-      let e ← Term.elabTerm t none
-      let msgdata ← keysAsPattern <| ← mkKey e
-      logInfo msgdata
+        let e ← Term.elabTerm t none
+        let msgdata ← keysAsPattern (← mkKey e)
+        logInfo msgdata
     | _                        => Elab.throwUnsupportedSyntax
 
 @[builtin_tactic Lean.Parser.Tactic.discrTreeKeyTac]
