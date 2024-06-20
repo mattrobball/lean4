@@ -933,9 +933,19 @@ example : False ∨ True := by
 -/
 syntax (name := dbgTrace) "dbg_trace " str : tactic
 
-/-- `discr_key_tree t?` displays the discrimination tree key of `t`, for a `ident` or a `term`,
-or the main goal. Useful for debugging `simp` failures. -/
+/--
+Similar to `#discr_tree_key` command, `discr_tree_key t?` prints the discrimination tree keys
+for the type of a term `t` or an identifier if `t` is specified.
+Otherwise, it prints the keys for the main goal.
+It uses the default configuration for generating keys.
+
+`discr_tree_simp_key t?` is similar to `discr_tree_key`, but it assumes the underlying type is
+an equality and prints the left-hand side using the `simp` configuration for generating keys.
+-/
 syntax (name := discrTreeKeyTac) "discr_tree_key " (ppSpace colGt term)? : tactic
+
+@[inherit_doc discrTreeKeyTac]
+syntax (name := discrTreeSimpKeyTac) "discr_tree_simp_key " (ppSpace colGt term)? : tactic
 
 /--
 `stop` is a helper tactic for "discarding" the rest of a proof:
