@@ -693,8 +693,8 @@ It uses the default configuration for generating keys.
 
 For example,
 ```
-#discr_tree_key (∀ {a n : Nat}, bar a (OfNat.ofNat n) = default)
--- @Eq Nat (bar _ (@OfNat.ofNat Nat _ _)) (@default Nat _)
+#discr_tree_key (∀ {a n : Nat}, bar a (OfNat.ofNat n))
+-- bar _ (@OfNat.ofNat Nat _ _)
 
 #discr_tree_simp_key Nat.add_assoc
 -- @HAdd.hAdd Nat Nat Nat _ (@HAdd.hAdd Nat Nat Nat _ _ _) _
