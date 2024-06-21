@@ -32,8 +32,7 @@ private def getType (t : TSyntax `term) : TermElabM Expr := do
       let info ← getConstInfo (← realizeGlobalConstNoOverloadWithInfo id)
       return info.type
   else
-  let e ← Term.elabTerm t none
-  return e
+    Term.elabTerm t none
 
 @[builtin_command_elab Lean.Parser.discrTreeKeyCmd]
 def evalDiscrTreeKeyCmd : CommandElab := fun stx => do
