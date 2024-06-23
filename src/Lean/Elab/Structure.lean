@@ -841,7 +841,10 @@ private def elabStructureView (view : StructView) : TermElabM Unit := do
         let instParents ← fieldInfos.filterM fun info => do
           let decl ← Term.getFVarLocalDecl! info.fvar
           let copiedParentNames ← copiedParents.mapM fun parent => getStructureName parent
-          pure (info.isSubobject && !containsFieldName #[info] copiedParentNames &&
+          let env ← getEnv
+          let copiedParentFields :=
+            copiedParentNames.map (fun name => getStructureFieldsFlattened env name) |>.flatten
+          pure (info.isSubobject && !containsFieldName #[info] copiedParentFields &&
             decl.binderInfo.isInstImplicit)
         withSaveInfoContext do  -- save new env
           Term.addLocalVarInfo view.ref[1] (← mkConstWithLevelParams view.declName)
