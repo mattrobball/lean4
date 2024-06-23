@@ -220,8 +220,8 @@ private def validStructType (type : Expr) : Bool :=
 private def findFieldInfo? (infos : Array StructFieldInfo) (fieldName : Name) : Option StructFieldInfo :=
   infos.find? fun info => info.name == fieldName
 
-private def containsFieldName (infos : Array StructFieldInfo) (fieldName : Name) : Bool :=
-  (findFieldInfo? infos fieldName).isSome
+private def containsFieldName (infos : Array StructFieldInfo) (fieldNames : Array Name) : Bool :=
+  fieldNames.foldl (fun bool fieldName => (findFieldInfo? infos fieldName).isSome || bool) false
 
 private def updateFieldInfoVal (infos : Array StructFieldInfo) (fieldName : Name) (value : Expr) : Array StructFieldInfo :=
   infos.map fun info =>
@@ -239,7 +239,7 @@ register_builtin_option structureDiamondWarning : Bool := {
 private def findExistingField? (infos : Array StructFieldInfo) (parentStructName : Name) : CoreM (Option Name) := do
   let fieldNames := getStructureFieldsFlattened (← getEnv) parentStructName
   for fieldName in fieldNames do
-    if containsFieldName infos fieldName then
+    if containsFieldName infos #[fieldName] then
       return some fieldName
   return none
 
@@ -250,7 +250,7 @@ where
   go (i : Nat) (infos : Array StructFieldInfo) := do
     if h : i < subfieldNames.size then
       let subfieldName := subfieldNames.get ⟨i, h⟩
-      if containsFieldName infos subfieldName then
+      if containsFieldName infos #[subfieldName] then
         throwError "field '{subfieldName}' from '{parentStructName}' has already been declared"
       let val  ← mkProjection parentFVar subfieldName
       let type ← inferType val
@@ -478,7 +478,7 @@ where
       else
         let env ← getEnv
         let subfieldNames := getStructureFieldsFlattened env parentStructName
-        let toParentName := mkToParentName parentStructName fun n => !containsFieldName infos n && !subfieldNames.contains n
+        let toParentName := mkToParentName parentStructName fun n => !containsFieldName infos #[n] && !subfieldNames.contains n
         let binfo := if view.isClass && isClass env parentStructName then BinderInfo.instImplicit else BinderInfo.default
         withLocalDecl toParentName binfo parentType fun parentFVar =>
           let infos := infos.push { name := toParentName, declName := view.declName ++ toParentName, fvar := parentFVar, kind := StructFieldKind.subobject }
@@ -831,7 +831,12 @@ private def elabStructureView (view : StructView) : TermElabM Unit := do
         mkAuxConstructions view.declName
         let instParents ← fieldInfos.filterM fun info => do
           let decl ← Term.getFVarLocalDecl! info.fvar
-          pure (info.isSubobject && decl.binderInfo.isInstImplicit)
+          let copiedParentNames ← copiedParents.mapM fun parent => getStructureName parent
+          let env ← getEnv
+          let copiedParentFields :=
+            copiedParentNames.map (fun name => getStructureFieldsFlattened env name) |>.flatten
+          pure (info.isSubobject && !containsFieldName #[info] copiedParentFields &&
+            decl.binderInfo.isInstImplicit)
         withSaveInfoContext do  -- save new env
           Term.addLocalVarInfo view.ref[1] (← mkConstWithLevelParams view.declName)
           if let some _ := view.ctor.ref.getPos? (canonicalOnly := true) then
