@@ -787,7 +787,7 @@ private partial def mkCoercionToCopiedParent (levelParams : List Name) (params :
       safety      := if view.modifiers.isUnsafe then DefinitionSafety.unsafe else DefinitionSafety.safe
     }
     if binfo.isInstImplicit then
-      addInstance declName AttributeKind.global (eval_prio default)
+      addInstance declName AttributeKind.global (eval_prio 50)
     else
       setReducibleAttribute declName
 
@@ -848,7 +848,7 @@ private def elabStructureView (view : StructView) : TermElabM Unit := do
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
         let projInstances := instParents.toList.map fun info => info.declName
         copiedParents.forM fun parent => mkCoercionToCopiedParent levelParams params view parent
-        projInstances.forM fun declName => addInstance declName AttributeKind.global (eval_prio default)
+        projInstances.forM fun declName => addInstance declName AttributeKind.global (eval_prio 100)
         let lctx ← getLCtx
         let fieldsWithDefault := fieldInfos.filter fun info => info.value?.isSome
         let defaultAuxDecls ← fieldsWithDefault.mapM fun info => do
