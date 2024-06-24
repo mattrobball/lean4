@@ -847,8 +847,8 @@ private def elabStructureView (view : StructView) : TermElabM Unit := do
               Term.addTermInfo' field.ref (← mkConstWithLevelParams field.declName) (isBinder := true)
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
         let projInstances := instParents.toList.map fun info => info.declName
-        projInstances.forM fun declName => addInstance declName AttributeKind.global (eval_prio default)
         copiedParents.forM fun parent => mkCoercionToCopiedParent levelParams params view parent
+        projInstances.forM fun declName => addInstance declName AttributeKind.global (eval_prio default)
         let lctx ← getLCtx
         let fieldsWithDefault := fieldInfos.filter fun info => info.value?.isSome
         let defaultAuxDecls ← fieldsWithDefault.mapM fun info => do
