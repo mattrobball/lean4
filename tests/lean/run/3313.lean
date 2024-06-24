@@ -36,16 +36,14 @@ set_option maxSynthPendingDepth 2 in
 #synth HasQuotient (Synonym (Synonym R)) (Submodule R (Synonym (Synonym R))) -- works
 
 /--
+info: Submodule.hasQuotient
+---
 info: [type_class] max synth pending failures (maxSynthPendingDepth: 1), use `set_option maxSynthPendingDepth <limit>`
     AddCommGroup Ruse `set_option diagnostics.threshold <num>` to control threshold for reporting counters
----
-error: failed to synthesize
-  HasQuotient (Synonym (Synonym R)) (Submodule R (Synonym (Synonym R)))
-use `set_option diagnostics true` to get diagnostic information
 -/
 #guard_msgs in
 set_option diagnostics true in
-#synth HasQuotient (Synonym (Synonym R)) (Submodule R (Synonym (Synonym R))) -- fails
+#synth HasQuotient (Synonym (Synonym R)) (Submodule R (Synonym (Synonym R))) -- doesn't fail!
 
 set_option maxSynthPendingDepth 2 in
 /-- info: Submodule.hasQuotient -/
