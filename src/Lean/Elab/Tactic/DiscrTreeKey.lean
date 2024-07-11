@@ -28,7 +28,7 @@ private def mkKey (e : Expr) (simp : Bool) : MetaM (Array Key) := do
       match p.eq? with
       | some (_, lhs, _) =>
         DiscrTree.mkPath lhs simpDtConfig
-      | _ => throwError "unexpected kind of 'simp' theorem{indentExpr type}"
+      | _ => DiscrTree.mkPath p simpDtConfig
     else
       DiscrTree.mkPath type simpDtConfig
   else

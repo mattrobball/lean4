@@ -1,67 +1,34 @@
+import Init.Data.Nat.Basic
+import Init.Data.List.Lemmas
+
 universe u
 
+open Nat List
+
+-- Keys for simp theorems
+#discr_tree_simp_key zero_le
+#discr_tree_simp_key succ_eq_add_one
+#discr_tree_simp_key Nat.mul_one
+#discr_tree_simp_key Nat.not_le
+#discr_tree_simp_key Nat.pred_succ
+#discr_tree_simp_key get?_nil
+#discr_tree_simp_key get?_cons_succ
+#discr_tree_simp_key or_cons
+#discr_tree_simp_key not_mem_nil
+#discr_tree_simp_key mem_cons
+#discr_tree_simp_key singleton_append
+#discr_tree_simp_key append_eq_nil
+#discr_tree_simp_key mapM_nil
+
+-- Keys for instances
+#discr_tree_key Nat.instIdempotentOpGcd
+#discr_tree_key List.instDecidableMemOfLawfulBEq
+#discr_tree_key List.instForIn'InferInstanceMembership
+
+-- Specifying the term directly
 def bar (_ _ : Nat) : Nat := default
 
 #discr_tree_key (∀ {a n : Nat}, bar a (OfNat.ofNat n) = default)
-#discr_tree_simp_key (∀ {a n : Nat}, bar a (no_index OfNat.ofNat n) = default)
-#discr_tree_key (∀ {a n : Nat}, bar a (no_index (OfNat.ofNat n)) = default)
-
-variable (α : Type u) [Add α]
-
-class AddSemigroup (α : Type u) extends Add α where
-  add_assoc : ∀ (a b c : α), a + b + c = a + (b + c)
-#discr_tree_simp_key Nat.add_assoc
-#discr_tree_key AddSemigroup.add_assoc
-#discr_tree_simp_key AddSemigroup.add_assoc
-
-structure Wrapper (α : Type u) where
-  val : α
-
-namespace Foo
-
-scoped instance foo : Add (Wrapper α) where
-  add x y := ⟨x.val + y.val⟩
-
-#discr_tree_key foo
-
-end Foo
-
-namespace Bar
-
-scoped instance bar : Add (Wrapper α) where
-  add := fun ⟨x⟩ ⟨y⟩ => ⟨x + y⟩
-
-end Bar
-
-section
-
-example (n : Nat) : n = n := by simp
-
-open Foo AddSemigroup
-
-variable (β : Type u) [AddSemigroup β]
-
-instance : AddSemigroup (Wrapper β) where
-  add_assoc _ _ _ := congrArg Wrapper.mk (by
-    discr_tree_simp_key add_assoc
-    discr_tree_key add_assoc
-    discr_tree_simp_key
-    fail_if_success simp [add_assoc]
-    sorry)
-
-end
-
-section
-
-open Bar AddSemigroup
-
-variable (β : Type u) [AddSemigroup β]
-
-instance : AddSemigroup (Wrapper β) where
-  add_assoc _ _ _ := congrArg Wrapper.mk (by
-    have (b₁ b₂ b₃ : β) : b₁ + b₂ + b₃ = b₁ + (b₂ + b₃) := add_assoc _ _ _
-    discr_tree_simp_key this
-    discr_tree_simp_key
-    simp [add_assoc])
-end
-
+#discr_tree_simp_key (∀ {a n : Nat}, bar a (no_index (OfNat.ofNat n)) = default)
+#discr_tree_simp_key (∀ m : Nat, ∃ n : Nat, m ≠ n)
+#discr_tree_simp_key (∀ m : Nat, m > 0 → m ≠ 0)
