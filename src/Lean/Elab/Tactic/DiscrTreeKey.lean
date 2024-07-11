@@ -18,9 +18,19 @@ private def mkKey (e : Expr) (simp : Bool) : MetaM (Array Key) := do
   let (_, _, type) ← withReducible <| forallMetaTelescopeReducing e
   let type ← whnfR type
   if simp then
-    match type.eq? with
-    | some (_, lhs, _) => mkPath lhs simpDtConfig
-    | none => throwError "unexpected kind of 'simp' theorem{indentExpr type}"
+    if let some (_, lhs, _) := type.eq? then
+      DiscrTree.mkPath lhs simpDtConfig
+    else if let some (lhs, _) := type.iff? then
+      DiscrTree.mkPath lhs simpDtConfig
+    else if let some (_, lhs, _) := type.ne? then
+      DiscrTree.mkPath lhs simpDtConfig
+    else if let some p := type.not? then
+      match p.eq? with
+      | some (_, lhs, _) =>
+        DiscrTree.mkPath lhs simpDtConfig
+      | _ => throwError "unexpected kind of 'simp' theorem{indentExpr type}"
+    else
+      DiscrTree.mkPath type simpDtConfig
   else
     mkPath type {}
 
@@ -51,31 +61,5 @@ def evalDiscrTreeSimpKeyCmd : CommandElab := fun stx => do
       let type ← getType t
       logInfo (← keysAsPattern <| ← mkKey type true)
     | _                        => Elab.throwUnsupportedSyntax
-
-@[builtin_tactic Lean.Parser.Tactic.discrTreeKeyTac]
-def evalDiscrTreeKeyTac : Tactic := fun stx => do
-  match stx with
-  | `(tactic| discr_tree_key) =>
-      let e ← getMainGoal
-      let keys ← keysAsPattern <| ← mkKey (← e.getType) false
-      logInfo keys
-  | `(tactic| discr_tree_key $t:term) =>
-    withMainContext do
-      let type ← getType t
-      logInfo (← keysAsPattern <| ← mkKey type false)
-  | _                        => throwUnsupportedSyntax
-
-@[builtin_tactic Lean.Parser.Tactic.discrTreeSimpKeyTac]
-def evalDiscrTreeSimpKeyTac : Tactic := fun stx => do
-  match stx with
-  | `(tactic| discr_tree_simp_key) =>
-      let e ← getMainGoal
-      let keys ← keysAsPattern <| ← mkKey (← e.getType) true
-      logInfo keys
-  | `(tactic| discr_tree_simp_key $t:term) =>
-    withMainContext do
-      let type ← getType t
-      logInfo (← keysAsPattern <| ← mkKey type true)
-  | _                        => throwUnsupportedSyntax
 
 end Lean.Elab.Tactic.DiscrTreeKey
