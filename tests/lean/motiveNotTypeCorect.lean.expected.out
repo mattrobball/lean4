@@ -5,6 +5,11 @@ h : f t = t
 d : D (f t)
 P : (t : Nat) → D t → Prop
 ⊢ P (f t) d
+motiveNotTypeCorect.lean:13:6-13:7: error: tactic 'rewrite' failed, motive is dependent
+h : true = false
+A : (b : Bool) → K b Type
+h2 : A false
+⊢ A true
 motiveNotTypeCorect.lean:18:8-18:9: error: tactic 'rewrite' failed, motive is dependent
 h : true = false
 A : (b : Bool) → if b = true then Prop else Nat
