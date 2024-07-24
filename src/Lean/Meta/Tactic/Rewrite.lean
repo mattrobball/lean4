@@ -30,6 +30,7 @@ def _root_.Lean.MVarId.rewrite (mvarId : MVarId) (e : Expr) (heq : Expr)
     let (newMVars, binderInfos, heqType) ← forallMetaTelescopeReducing heqType
     let heq := mkAppN heq newMVars
     let cont (heq heqType : Expr) : MetaM RewriteResult := do
+      withConfig (fun oldConfig => { config, oldConfig with }) do
       match (← matchEq? heqType) with
       | none => throwTacticEx `rewrite mvarId m!"equality or iff proof expected{indentExpr heqType}"
       | some (α, lhs, rhs) =>
@@ -37,7 +38,7 @@ def _root_.Lean.MVarId.rewrite (mvarId : MVarId) (e : Expr) (heq : Expr)
           if lhs.getAppFn.isMVar then
             throwTacticEx `rewrite mvarId m!"pattern is a metavariable{indentExpr lhs}\nfrom equation{indentExpr heqType}"
           let e ← instantiateMVars e
-          let eAbst ← withConfig (fun oldConfig => { config, oldConfig with }) <| kabstract e lhs config.occs
+          let eAbst ← kabstract e lhs config.occs
           unless eAbst.hasLooseBVars do
             throwTacticEx `rewrite mvarId m!"did not find instance of the pattern in the target expression{indentExpr lhs}"
           -- construct rewrite proof
@@ -47,9 +48,7 @@ def _root_.Lean.MVarId.rewrite (mvarId : MVarId) (e : Expr) (heq : Expr)
           let motive := Lean.mkLambda `_a BinderInfo.default α eAbst
           unless (← isTypeCorrect motive) do
             throwTacticEx `rewrite mvarId "motive is not type correct"
-          unless (← withLocalDeclD `_a α fun a =>
-            withConfig (fun oldConfig => { config, oldConfig with })
-              do isDefEq (← inferType (eAbst.instantiate1 a)) eType) do
+          unless (← withLocalDeclD `_a α fun a => do isDefEq (← inferType (eAbst.instantiate1 a)) eType) do
             -- NB: using motive.arrow? would disallow motives where the dependency
             -- can be reduced away
             throwTacticEx `rewrite mvarId "motive is dependent"
