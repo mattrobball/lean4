@@ -17,7 +17,7 @@ structure Mem (a : α) (as : Array α) : Prop where
   val : a ∈ as.data
 
 instance : Membership α (Array α) where
-  mem a as := Mem a as
+  mem as a := Mem a as
 
 theorem sizeOf_lt_of_mem [SizeOf α] {as : Array α} (h : a ∈ as) : sizeOf a < sizeOf as := by
   cases as with | _ as =>
