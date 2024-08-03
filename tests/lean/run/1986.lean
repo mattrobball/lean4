@@ -30,8 +30,8 @@ namespace Set
 protected def Mem (a : α) (s : Set α) : Prop :=
 s a
 
-instance : Membership α (Set α) :=
-⟨Set.Mem⟩
+instance : Membership α (Set α) where
+ mem s a := Set.Mem a s
 
 def range (f : ι → α) : Set α :=
   setOf (λ x => ∃ y, f y = x)
