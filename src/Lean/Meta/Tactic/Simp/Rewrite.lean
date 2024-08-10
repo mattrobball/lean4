@@ -14,6 +14,7 @@ import Lean.Meta.Tactic.Simp.Types
 import Lean.Meta.Tactic.LinearArith.Simp
 import Lean.Meta.Tactic.Simp.Simproc
 import Lean.Meta.Tactic.Simp.Attr
+import Lean.Statistics
 
 namespace Lean.Meta.Simp
 
@@ -110,6 +111,8 @@ where
 
 private def tryTheoremCore (lhs : Expr) (xs : Array Expr) (bis : Array BinderInfo) (val : Expr) (type : Expr) (e : Expr) (thm : SimpTheorem) (numExtraArgs : Nat) : SimpM (Option Result) := do
   recordTriedSimpTheorem thm.origin
+  if let .decl n _ := thm.origin then
+    modifyEnv (simpStatExt.addEntry · { name := n, attempts := 1, successes := 0 })
   let rec go (e : Expr) : SimpM (Option Result) := do
     if (← isDefEq lhs e) then
       unless (← synthesizeArgs thm.origin bis xs) do
@@ -142,6 +145,8 @@ private def tryTheoremCore (lhs : Expr) (xs : Array Expr) (bis : Array BinderInf
           return none
       trace[Meta.Tactic.simp.rewrite] "{← ppSimpTheorem thm}, {e} ==> {rhs}"
       recordSimpTheorem thm.origin
+      if let .decl n _ := thm.origin then
+        modifyEnv (simpStatExt.addEntry · { name := n, attempts := 0, successes := 1 })
       return some { expr := rhs, proof? }
     else
       unless lhs.isMVar do

@@ -11,7 +11,6 @@ import Lean.Elab.Tactic.Basic
 import Lean.Elab.Tactic.ElabTerm
 import Lean.Elab.Tactic.Location
 import Lean.Elab.Tactic.Config
-import Lean.Statistics
 
 namespace Lean.Elab.Tactic
 open Meta
@@ -436,9 +435,6 @@ def withSimpDiagnostics (x : TacticM Simp.Diagnostics) : TacticM Unit := do
     simpLocation ctx simprocs discharge? (expandOptLocation stx[5])
   if tactic.simp.trace.get (← getOptions) then
     traceSimpCall stx stats.usedTheorems
-  for stuff in stats.diag.usedThmCounter do
-    if let .decl declName _ _ := stuff.fst then
-    modifyEnv (StatisticsState.statisticsExtension.addEntry · { name := declName, attempts := stuff.snd})
   return stats.diag
 
 @[builtin_tactic Lean.Parser.Tactic.simpAll] def evalSimpAll : Tactic := fun stx => withMainContext do withSimpDiagnostics do
@@ -449,9 +445,6 @@ def withSimpDiagnostics (x : TacticM Simp.Diagnostics) : TacticM Unit := do
   | some mvarId => replaceMainGoal [mvarId]
   if tactic.simp.trace.get (← getOptions) then
     traceSimpCall stx stats.usedTheorems
-  for stuff in stats.diag.usedThmCounter do
-    if let .decl declName _ _ := stuff.fst then
-    modifyEnv (StatisticsState.statisticsExtension.addEntry · { name := declName, attempts := stuff.snd})
   return stats.diag
 
 def dsimpLocation (ctx : Simp.Context) (simprocs : Simp.SimprocsArray) (loc : Location) : TacticM Unit := do

@@ -10,6 +10,7 @@ import Lean.Meta.Tactic.UnifyEq
 import Lean.Meta.Tactic.Simp.Rewrite
 import Lean.Meta.Tactic.Simp.Diagnostics
 import Lean.Meta.Match.Value
+import Lean.Statistics
 
 namespace Lean.Meta
 namespace Simp
@@ -82,6 +83,7 @@ private def reduceProjFn? (e : Expr) : SimpM (Option Expr) := do
           -/
           let e? ← withReducibleAndInstances <| unfoldDefinition? e
           if e?.isSome then
+            modifyEnv (simpStatExt.addEntry · { name := cinfo.name, attempts := 1})
             recordSimpTheorem (.decl cinfo.name)
           return e?
         else
@@ -202,6 +204,7 @@ private def reduceStep (e : Expr) : SimpM Expr := do
   | some e' =>
     trace[Meta.Tactic.simp.rewrite] "unfold {mkConst e.getAppFn.constName!}, {e} ==> {e'}"
     recordSimpTheorem (.decl e.getAppFn.constName!)
+    modifyEnv (simpStatExt.addEntry · { name := e.getAppFn.constName, attempts := 1, successes := 1})
     return e'
   | none => foldRawNatLit e
 

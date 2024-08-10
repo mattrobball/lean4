@@ -2,32 +2,42 @@ import Lean.Environment
 
 open Lean
 
-structure StatisticEntry where
+structure SimpStatEntry where
   name : Name
   attempts : Nat := 0
+  successes : Nat := 0
 deriving Inhabited
 
-structure StatisticsState where
-  stats : SMap Name Nat := {}
+structure SimpStatState where
+  stats : PersistentHashMap Name (Nat × Nat) := {}
 deriving Inhabited
 
-namespace StatisticsState
+namespace SimpStatState
 
-def addEntry (s : StatisticsState) (entry : StatisticEntry) : StatisticsState :=
+def addEntry (s : SimpStatState) (entry : SimpStatEntry) : SimpStatState :=
   { s with stats :=
-      if let some attempts := s.stats.find? entry.name then
-        s.stats.insert entry.name (attempts + entry.attempts)
+      if let some stats := s.stats.find? entry.name then
+        s.stats.insert entry.name (stats.1 + entry.attempts, stats.2 + entry.successes)
       else
-        s.stats.insert entry.name entry.attempts }
+        s.stats.insert entry.name (entry.attempts, entry.successes) }
 
-def switch (s : StatisticsState) : StatisticsState :=
-  { s with stats := s.stats.switch }
+end SimpStatState
 
-builtin_initialize statisticsExtension : SimplePersistentEnvExtension StatisticEntry StatisticsState ←
+open SimpStatState
+
+builtin_initialize simpStatExt : SimplePersistentEnvExtension SimpStatEntry SimpStatState ←
   registerSimplePersistentEnvExtension {
-    addEntryFn    := StatisticsState.addEntry
-    addImportedFn := fun es => (mkStateFromImportedEntries StatisticsState.addEntry {} es).switch}
+    addEntryFn    := SimpStatState.addEntry
+    addImportedFn := fun es => (mkStateFromImportedEntries addEntry {} es)}
 
-def getAttempts? (env : Environment) (declName : Name) : Option Nat :=
-  (statisticsExtension.getState env).stats.find? declName
+def Lean.Environment.getAttempts? (env : Environment) (declName : Name) : Option Nat :=
+  (simpStatExt.getState env).stats.find? declName |>.map (·.1)
 
+def Lean.Environment.getAllAttempts (env : Environment) : Array (Name × Nat) :=
+  (simpStatExt.getState env).stats.toArray |>.map fun (n, (a, _)) => (n, a)
+
+def Lean.Environment.getSuccesses? (env : Environment) (declName : Name) : Option Nat :=
+  (simpStatExt.getState env).stats.find? declName |>.map (·.2)
+
+def Lean.Environment.getAllSuccesses (env : Environment) : Array (Name × Nat) :=
+  (simpStatExt.getState env).stats.toArray |>.map fun (n, (_, s)) => (n, s)

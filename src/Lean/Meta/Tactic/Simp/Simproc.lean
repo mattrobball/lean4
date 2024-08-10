@@ -8,6 +8,7 @@ import Lean.ScopedEnvExtension
 import Lean.Compiler.InitAttr
 import Lean.Meta.DiscrTree
 import Lean.Meta.Tactic.Simp.Types
+import Lean.Statistics
 
 namespace Lean.Meta.Simp
 
@@ -230,14 +231,17 @@ def simprocCore (post : Bool) (s : SimprocTree) (erased : PHashSet Name) (e : Ex
         | .visit r =>
           trace[Debug.Meta.Tactic.simp] "simproc result {e} => {r.expr}"
           recordSimpTheorem (.decl simprocEntry.declName post)
+          modifyEnv (simpStatExt.addEntry · { name := simprocEntry.declName, attempts := 1, successes := 1})
           return .visit (← mkEqTransOptProofResult proof? cache r)
         | .done r =>
           trace[Debug.Meta.Tactic.simp] "simproc result {e} => {r.expr}"
           recordSimpTheorem (.decl simprocEntry.declName post)
+          modifyEnv (simpStatExt.addEntry · { name := simprocEntry.declName, attempts := 1, successes := 1})
           return .done (← mkEqTransOptProofResult proof? cache r)
         | .continue (some r) =>
           trace[Debug.Meta.Tactic.simp] "simproc result {e} => {r.expr}"
           recordSimpTheorem (.decl simprocEntry.declName post)
+          modifyEnv (simpStatExt.addEntry · { name := simprocEntry.declName, attempts := 1, successes := 1})
           e := r.expr
           proof? ← mkEqTrans? proof? r.proof?
           cache := cache && r.cache
@@ -265,14 +269,17 @@ def dsimprocCore (post : Bool) (s : SimprocTree) (erased : PHashSet Name) (e : E
         | .visit eNew =>
           trace[Debug.Meta.Tactic.simp] "simproc result {e} => {eNew}"
           recordSimpTheorem (.decl simprocEntry.declName post)
+          modifyEnv (simpStatExt.addEntry · { name := simprocEntry.declName, attempts := 1, successes := 1})
           return .visit eNew
         | .done eNew =>
           trace[Debug.Meta.Tactic.simp] "simproc result {e} => {eNew}"
           recordSimpTheorem (.decl simprocEntry.declName post)
+          modifyEnv (simpStatExt.addEntry · { name := simprocEntry.declName, attempts := 1, successes := 1})
           return .done eNew
         | .continue (some eNew) =>
           trace[Debug.Meta.Tactic.simp] "simproc result {e} => {eNew}"
           recordSimpTheorem (.decl simprocEntry.declName post)
+          modifyEnv (simpStatExt.addEntry · { name := simprocEntry.declName, attempts := 1, successes := 1})
           e := eNew
           found := true
         | .continue none =>

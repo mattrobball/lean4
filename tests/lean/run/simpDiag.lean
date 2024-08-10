@@ -14,6 +14,9 @@ info: [simp] used theorems (max: 50, num: 2):
   q_eq ↦ 50[simp] tried theorems (max: 101, num: 2):
     f_eq ↦ 101, succeeded: 50
    q_eq ↦ 50, succeeded: 50use `set_option diagnostics.threshold <num>` to control threshold for reporting counters
+---
+info: [reduction] unfolded reducible declarations (max: 502, num: 1):
+    outParam ↦ 502use `set_option diagnostics.threshold <num>` to control threshold for reporting counters
 -/
 #guard_msgs in
 example : f (x + 50) = f x := by
@@ -30,15 +33,18 @@ def ack : Nat → Nat → Nat
   | x+1, y+1 => ack x (ack (x+1) y)
 
 /--
-info: [simp] used theorems (max: 1201, num: 3):
-    ack.eq_3 ↦ 1201
+info: [simp] used theorems (max: 1200, num: 3):
+    ack.eq_3 ↦ 1200
   ⏎
   Nat.reduceAdd (builtin simproc) ↦ 771
   ⏎
   ack.eq_1 ↦ 768[simp] tried theorems (max: 1973, num: 2):
-    ack.eq_3 ↦ 1973, succeeded: 1201
+    ack.eq_3 ↦ 1973, succeeded: 1200
   ⏎
   ack.eq_1 ↦ 768, succeeded: 768use `set_option diagnostics.threshold <num>` to control threshold for reporting counters
+---
+info: [reduction] unfolded reducible declarations (max: 5407, num: 1):
+    outParam ↦ 5407use `set_option diagnostics.threshold <num>` to control threshold for reporting counters
 ---
 error: tactic 'simp' failed, nested error:
 maximum recursion depth has been reached
