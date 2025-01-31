@@ -408,11 +408,11 @@ level mk_max(buffer<level> const & args) {
         return args[0];
     } else {
         lean_assert(nargs >= 2);
-        level r = mk_max(args[nargs-2], args[nargs-1]);
-        unsigned i = nargs-2;
-        while (i > 0) {
-            --i;
+        level r = mk_max(args[0], args[1]);
+        unsigned i = 2;
+        while (i < nargs) {
             r = mk_max(args[i], r);
+            ++i;
         }
         return r;
     }
