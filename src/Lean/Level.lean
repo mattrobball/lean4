@@ -306,29 +306,55 @@ private def mkIMaxAux : Level → Level → Level
   | l,           false,             lvls => getMaxArgsAux normalize (normalize l) true lvls
   | l,           true,              lvls => lvls.push l
 
-private def accMax (result : Level) (prev : Level) (offset : Nat) : Level :=
-  if result.isZero then prev.addOffset offset
-  else mkLevelMax result (prev.addOffset offset)
+/- Auxiliary function used at `normalize`
+We keep track of both the level and `Level.getOffSet` that level in `result` to avoid recomputing.
+We assume `prev.addOffset prevK` is before `result` in the order defined by `normLt`.
+-/
+private def accMax (prev : Level) (prevK : Nat) (result : Level × Level) : Level × Level :=
+  if result.1 == prev then result
+  else
+    let max := mkLevelMax (prev.addOffset prevK) result.2
+    (max, max)
 
 /- Auxiliary function used at `normalize`.
    Remarks:
    - `lvls` are sorted using `normLt`
-   - `extraK` is the outer offset of the `max` term. We will push it inside.
-   - `i` is the current array index
+   - `stop` is the index of the last level that should be included in `result`
+   - `extraK` is the outer offset of the `max` term
    - `prev + prevK` is the "previous" level that has not been added to `result` yet.
    - `result` is the accumulator
+   - `resultLvlOffSet` is the level from which `result` is offseted
  -/
-private partial def mkMaxAux (lvls : Array Level) (extraK : Nat) (i : Nat) (prev : Level) (prevK : Nat) (result : Level) : Level :=
-  if h : i < lvls.size then
-    let lvl   := lvls[i]
-    let curr  := lvl.getLevelOffset
-    let currK := lvl.getOffset
-    if curr == prev then
-      mkMaxAux lvls extraK (i+1) curr currK result
-    else
-      mkMaxAux lvls extraK (i+1) curr currK (accMax result prev (extraK + prevK))
+private partial def mkMaxAux (lvls : Array Level) (extraK : Nat) (stop : Nat) (i : Nat) (prev : Level) (prevK : Nat) (result : Level × Level) : Level :=
+  let lvl := lvls[i]!
+  let curr  := lvl.getLevelOffset
+  let currK := lvl.getOffset
+  if i == stop then
+    let lvl := accMax prev (extraK + prevK) result
+    accMax curr (extraK + currK) lvl |>.2
+  else if curr == prev then
+    mkMaxAux lvls extraK (i-1) stop prev prevK result
   else
-    accMax result prev (extraK + prevK)
+    let newResult := accMax prev (extraK + prevK) result
+    mkMaxAux lvls extraK (i-1) stop curr currK newResult
+
+/- Auxiliary function used at `normalize`.
+   Remarks:
+   - `lvls` are sorted using `normLt`
+   - `extraK` is the outer offset of the `max` term
+   - `stop` is the index of the last level that should be included in `result`
+ -/
+private partial def mkMax (lvls : Array Level) (stop : Nat) (extraK : Nat) : Level :=
+  let result := lvls[lvls.size-1]!
+  let resultLvlOffset := result.getLevelOffset
+  let prev := lvls[lvls.size-2]!.getLevelOffset
+  let prevK := lvls[lvls.size-2]!.getOffset
+  if stop == lvls.size then
+    result.addOffset extraK
+  else if stop + 1 == lvls.size then
+    accMax prev (extraK + prevK) (resultLvlOffset, result.addOffset extraK) |>.2
+  else
+    mkMaxAux lvls extraK stop (lvls.size - 3) prev prevK (resultLvlOffset, result.addOffset extraK)
 
 /-
   Auxiliary function for `normalize`. It assumes `lvls` has been sorted using `normLt`.
@@ -374,10 +400,7 @@ partial def normalize (l : Level) : Level :=
       let lvls  := lvls.qsort normLt
       let firstNonExplicit := skipExplicit lvls 0
       let i := if isExplicitSubsumed lvls firstNonExplicit then firstNonExplicit else firstNonExplicit - 1
-      let lvl₁  := lvls[i]!
-      let prev  := lvl₁.getLevelOffset
-      let prevK := lvl₁.getOffset
-      mkMaxAux lvls k (i+1) prev prevK levelZero
+      mkMax lvls i k
     | imax l₁ l₂ =>
       if l₂.isNeverZero then addOffset (normalize (mkLevelMax l₁ l₂)) k
       else
