@@ -330,13 +330,15 @@ private partial def mkMaxAux (lvls : Array Level) (extraK : Nat) (stop : Nat) (i
   let curr  := lvl.getLevelOffset
   let currK := lvl.getOffset
   if i == stop then
-    let lvl := accMax prev (extraK + prevK) result
-    accMax curr (extraK + currK) lvl |>.2
+    if curr == prev then accMax prev (extraK + prevK) result |>.2
+    else
+      let lvl := accMax prev (extraK + prevK) result
+      accMax curr (extraK + currK) lvl |>.2
   else if curr == prev then
-    mkMaxAux lvls extraK (i-1) stop prev prevK result
+    mkMaxAux lvls extraK stop (i-1) prev prevK result
   else
     let newResult := accMax prev (extraK + prevK) result
-    mkMaxAux lvls extraK (i-1) stop curr currK newResult
+    mkMaxAux lvls extraK stop (i-1) curr currK newResult
 
 /- Auxiliary function used at `normalize`.
    Remarks:
@@ -349,9 +351,9 @@ private partial def mkMax (lvls : Array Level) (stop : Nat) (extraK : Nat) : Lev
   let resultLvlOffset := result.getLevelOffset
   let prev := lvls[lvls.size-2]!.getLevelOffset
   let prevK := lvls[lvls.size-2]!.getOffset
-  if stop == lvls.size then
+  if lvls.size ≤ stop + 1 then
     result.addOffset extraK
-  else if stop + 1 == lvls.size then
+  else if stop + 2 == lvls.size then
     accMax prev (extraK + prevK) (resultLvlOffset, result.addOffset extraK) |>.2
   else
     mkMaxAux lvls extraK stop (lvls.size - 3) prev prevK (resultLvlOffset, result.addOffset extraK)

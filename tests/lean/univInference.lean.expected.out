@@ -1,7 +1,7 @@
 univInference.lean:25:48-25:54: error: resulting type is of the form
   Type ?u
 but the universes of constructor arguments suggest that this could accidentally be a higher universe than necessary. Explicitly providing a resulting type will silence this error. Universe inference suggests using
-  Sort (max (max 1 u) v)
+  Sort (max 1 u v)
 if the resulting universe level should be at the above universe level or higher.
 
 Explanation: At this point in elaboration, universe level unification has committed to using a resulting universe level of the form '?u+1'. Constructor argument universe levels must be no greater than the resulting universe level, and this condition implies the following constraint(s):
@@ -15,7 +15,7 @@ Possible solution: use levels of the form 'max 1 _' or '_ + 1' to ensure the uni
 univInference.lean:64:48-64:54: error: resulting type is of the form
   Type ?u
 but the universes of constructor arguments suggest that this could accidentally be a higher universe than necessary. Explicitly providing a resulting type will silence this error. Universe inference suggests using
-  Sort (max (max 1 u) v)
+  Sort (max 1 u v)
 if the resulting universe level should be at the above universe level or higher.
 
 Explanation: At this point in elaboration, universe level unification has committed to using a resulting universe level of the form '?u+1'. Constructor argument universe levels must be no greater than the resulting universe level, and this condition implies the following constraint(s):
