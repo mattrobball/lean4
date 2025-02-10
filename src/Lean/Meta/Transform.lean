@@ -182,4 +182,15 @@ def eraseInaccessibleAnnotations (e : Expr) : CoreM Expr :=
 def erasePatternRefAnnotations (e : Expr) : CoreM Expr :=
   Core.transform e (post := fun e => return .done <| if let some (_, e) := patternWithRef? e then e else e)
 
+/--
+Normalizes universe levels in constants and sorts.
+-/
+def normalizeLevels (e : Expr) : CoreM Expr := do
+  let pre (e : Expr) := do
+    match e with
+    | .sort u => return .done <| e.updateSort! u.normalize
+    | .const _ us => return .done <| e.updateConst! (us.map Level.normalize)
+    | _ => return .continue
+  Core.transform e (pre := pre)
+
 end Lean.Meta

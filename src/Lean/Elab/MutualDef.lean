@@ -28,7 +28,7 @@ builtin_initialize
 def instantiateMVarsProfiling (e : Expr) : MetaM Expr := do
   profileitM Exception s!"instantiate metavars" (← getOptions) do
   withTraceNode `Meta.instantiateMVars (fun _ => pure e) do
-    instantiateMVars e
+   Meta.normalizeLevels (← instantiateMVars e)
 
 /-- `DefView` plus header elaboration data and snapshot. -/
 structure DefViewElabHeader extends DefView, DefViewElabHeaderData where

@@ -130,17 +130,6 @@ def foldProjs (e : Expr) : MetaM Expr := do
   Meta.transform e (post := post)
 
 /--
-Normalizes universe levels in constants and sorts.
--/
-def normalizeLevels (e : Expr) : CoreM Expr := do
-  let pre (e : Expr) := do
-    match e with
-    | .sort u => return .done <| e.updateSort! u.normalize
-    | .const _ us => return .done <| e.updateConst! (us.map Level.normalize)
-    | _ => return .continue
-  Core.transform e (pre := pre)
-
-/--
 Normalizes the given expression using the `grind` simplification theorems and simprocs.
 This function is used for normalzing E-matching patterns. Note that it does not return a proof.
 -/
