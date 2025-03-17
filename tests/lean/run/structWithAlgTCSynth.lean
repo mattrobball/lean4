@@ -426,7 +426,7 @@ instance (priority := 100) Ring.toNonAssocRing : NonAssocRing α :=
   zero_mul := sorry
   mul_zero := sorry }
 
-instance (priority := 200) : Semiring α :=
+instance (priority := 100) : Semiring α :=
   { ‹Ring α› with }
 
 end Ring
@@ -459,7 +459,7 @@ end Mathlib.Data.FunLike.Basic
 
 section Mathlib.GroupTheory.GroupAction.Defs
 
-instance (priority := 910) Mul.toSMul (α : Type _) [Mul α] : SMul α α :=
+instance (priority := 100) Mul.toSMul (α : Type _) [Mul α] : SMul α α :=
   ⟨(· * ·)⟩
 
 class MulAction (α : Type _) (β : Type _) [Monoid α] extends SMul α β where
@@ -470,7 +470,7 @@ section
 
 variable [Monoid M] [MulAction M α]
 
-instance (priority := 910) Monoid.toMulAction : MulAction M M where
+instance (priority := 100) Monoid.toMulAction : MulAction M M where
   smul := (· * ·)
 
 end
@@ -1314,11 +1314,23 @@ instance instAlgebra
 
 --------------
 
+variable (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M))
+set_option synthInstance.maxHeartbeats 0 in
+set_option maxHeartbeats 0 in
+set_option trace.Meta.synthInstance true in
+set_option trace.Meta.isDefEq true in
+set_option trace.profiler true in
+#synth Semiring ((Quot_r R M) ⧸ I)
+
 /-!
 Typeclass synthesis should remain fast when multiple `with` patterns are nested
 
 Prior to #2478, this requires over 30000 heartbeats.
 -/
-set_option synthInstance.maxHeartbeats 400 in
-instance instAlgebra' (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M)) :
-    Algebra R ((Quot_r R M) ⧸ I) := inferInstance
+-- set_option synthInstance.maxHeartbeats 0 in
+-- set_option maxHeartbeats 0 in
+-- set_option trace.Meta.synthInstance true in
+-- set_option trace.Meta.isDefEq true in
+-- set_option trace.profiler true in
+-- instance instAlgebra' (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M)) :
+--     Algebra R ((Quot_r R M) ⧸ I) := inferInstance

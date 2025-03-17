@@ -16,9 +16,9 @@ class E extends C, D
 /-!
 These were or were not instances before #5902 and still are or are not.
 -/
-/-- info: some 1000 -/
+/-- info: some 100 -/
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E.toC)
-/-- info: some 1000 -/
+/-- info: some 100 -/
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E.toD)
 /-- info: none -/
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E.toA)
@@ -39,7 +39,7 @@ class E' extends C, D, A
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E'.toA_1)
 /-- info: none -/
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E'.toB)
-/-- info: some 1000 -/
+/-- info: some 100 -/
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E'.toC)
-/-- info: some 1000 -/
+/-- info: some 100 -/
 #guard_msgs in #eval return (←Lean.Meta.getInstancePriority? `E'.toD)
