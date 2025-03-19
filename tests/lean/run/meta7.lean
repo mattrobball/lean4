@@ -238,7 +238,7 @@ def tst9 : MetaM Unit := do
 
 /--
 info: [Meta.debug] ----- tst9 -----
-[Meta.debug] [(instOfNatNat, 10)]
+[Meta.debug] [(instOfNatNat, 100)]
 -/
 #guard_msgs in
 #eval tst9
