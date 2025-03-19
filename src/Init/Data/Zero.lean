@@ -10,8 +10,8 @@ import Init.Core
 Instances converting between `Zero α` and `OfNat α (nat_lit 0)`.
 -/
 
-instance (priority := 300) Zero.toOfNat0 {α} [Zero α] : OfNat α (nat_lit 0) where
+instance (priority := 30) Zero.toOfNat0 {α} [Zero α] : OfNat α (nat_lit 0) where
   ofNat := ‹Zero α›.1
 
-instance (priority := 200) Zero.ofOfNat0 {α} [OfNat α (nat_lit 0)] : Zero α where
+instance (priority := 20) Zero.ofOfNat0 {α} [OfNat α (nat_lit 0)] : Zero α where
   zero := 0
