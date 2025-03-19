@@ -1301,8 +1301,10 @@ inductive r : (MvPolynomial M R) → (MvPolynomial M R) → Prop
 
 def Quot_r := RingQuot (r R M)
 
-instance : Semiring (Quot_r R M) :=
-  RingQuot.instSemiring _
+-- This unifies with `CommRing.toRing.toSemiring` from below but does
+-- so very slowly
+-- instance : Semiring (Quot_r R M) :=
+--   RingQuot.instSemiring _
 
 instance {S : Type w} [CommRing S] : CommRing (Quot_r S M) :=
   RingQuot.instCommRing _
@@ -1314,23 +1316,11 @@ instance instAlgebra
 
 --------------
 
-variable (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M))
-set_option synthInstance.maxHeartbeats 0 in
-set_option maxHeartbeats 0 in
-set_option trace.Meta.synthInstance true in
-set_option trace.Meta.isDefEq true in
-set_option trace.profiler true in
-#synth Semiring ((Quot_r R M) ⧸ I)
-
 /-!
 Typeclass synthesis should remain fast when multiple `with` patterns are nested
 
 Prior to #2478, this requires over 30000 heartbeats.
 -/
--- set_option synthInstance.maxHeartbeats 0 in
--- set_option maxHeartbeats 0 in
--- set_option trace.Meta.synthInstance true in
--- set_option trace.Meta.isDefEq true in
--- set_option trace.profiler true in
--- instance instAlgebra' (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M)) :
---     Algebra R ((Quot_r R M) ⧸ I) := inferInstance
+set_option synthInstance.maxHeartbeats 100 in
+instance instAlgebra' (R M : Type _) [CommRing R] (I : Ideal (Quot_r R M)) :
+    Algebra R ((Quot_r R M) ⧸ I) := inferInstance
