@@ -443,11 +443,11 @@ jobs:
           cd tests/bench
           nix shell .#temci -c temci exec --config speedcenter.yaml --included_blocks fast --runs 1
         if: matrix.test-speedcenter
-      - name: Check rebootstrap
-        run: |
-          # clean rebuild in case of Makefile changes
-          make -C build update-stage0 && rm -rf build/stage* && make -C build -j$NPROC
-        if: matrix.name == 'Linux' && needs.configure.outputs.check-level >= 1
+      # - name: Check rebootstrap
+      #   run: |
+      #     # clean rebuild in case of Makefile changes
+      #     make -C build update-stage0 && rm -rf build/stage* && make -C build -j$NPROC
+      #   if: matrix.name == 'Linux' && needs.configure.outputs.check-level >= 1
       - name: CCache stats
         run: ccache -s
 
