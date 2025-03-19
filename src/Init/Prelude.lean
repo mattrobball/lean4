@@ -1123,7 +1123,7 @@ class OfNat (α : Type u) (_ : Nat) where
   `α`. -/
   ofNat : α
 
-@[default_instance 100] /- low prio -/
+@[default_instance 10] /- low prio -/
 instance instOfNatNat (n : Nat) : OfNat Nat n where
   ofNat := n
 
