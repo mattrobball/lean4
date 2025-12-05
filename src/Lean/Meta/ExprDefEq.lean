@@ -386,7 +386,11 @@ private def checkTypesAndAssign (mvar : Expr) (v : Expr) : MetaM Bool :=
       let mvarType ← inferType mvar
       withInferTypeConfig do
         let vType ← inferType v
-        if (← Meta.isExprDefEqAux mvarType vType) then
+        let transparency := if (← isClass? mvarType).isSome || (← isClass? vType).isSome then
+            TransparencyMode.instances
+          else
+            TransparencyMode.default
+        if (← withTransparency transparency <| Meta.isExprDefEqAux mvarType vType) then
           mvar.mvarId!.assign v
           pure true
         else
