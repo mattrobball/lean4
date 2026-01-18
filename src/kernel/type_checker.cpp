@@ -6,6 +6,7 @@ Author: Leonardo de Moura
 */
 #include <utility>
 #include <vector>
+#include <iostream>
 #include "runtime/interrupt.h"
 #include "runtime/sstream.h"
 #include "runtime/flet.h"
@@ -21,6 +22,91 @@ Author: Leonardo de Moura
 #include "kernel/inductive.h"
 
 namespace lean {
+
+// Thread-local state for kernel defeq tracing
+// This provides direct tracing that doesn't depend on the elaborator's trace infrastructure
+static LEAN_THREAD_LOCAL name * g_current_decl_name = nullptr;
+static LEAN_THREAD_LOCAL name * g_defeq_trace_filter = nullptr;
+static LEAN_THREAD_LOCAL unsigned g_defeq_trace_depth = 0;
+static LEAN_THREAD_LOCAL bool g_kernel_defeq_trace_enabled = false;
+static LEAN_THREAD_LOCAL bool g_kernel_defeq_trace_expr = false;  // verbose mode for expressions
+
+void enable_kernel_defeq_trace(bool trace_expr) {
+    g_kernel_defeq_trace_enabled = true;
+    g_kernel_defeq_trace_expr = trace_expr;
+}
+
+void disable_kernel_defeq_trace() {
+    g_kernel_defeq_trace_enabled = false;
+    g_kernel_defeq_trace_expr = false;
+}
+
+void set_kernel_defeq_trace_decl(name const & n) {
+    if (g_current_decl_name) {
+        delete g_current_decl_name;
+    }
+    g_current_decl_name = new name(n);
+}
+
+void clear_kernel_defeq_trace_decl() {
+    if (g_current_decl_name) {
+        delete g_current_decl_name;
+        g_current_decl_name = nullptr;
+    }
+}
+
+void set_kernel_defeq_trace_filter(name const & n) {
+    if (g_defeq_trace_filter) {
+        delete g_defeq_trace_filter;
+    }
+    g_defeq_trace_filter = new name(n);
+}
+
+void clear_kernel_defeq_trace_filter() {
+    if (g_defeq_trace_filter) {
+        delete g_defeq_trace_filter;
+        g_defeq_trace_filter = nullptr;
+    }
+}
+
+static bool should_trace_kernel_defeq() {
+    if (!g_kernel_defeq_trace_enabled) return false;
+    if (!g_current_decl_name) return false;
+    if (!g_defeq_trace_filter) return true;  // No filter means trace all when enabled
+    return is_prefix_of(*g_defeq_trace_filter, *g_current_decl_name);
+}
+
+static std::string indent_str() {
+    return std::string(g_defeq_trace_depth * 2, ' ');
+}
+
+// Scoped depth tracker
+struct scoped_defeq_depth {
+    scoped_defeq_depth() { g_defeq_trace_depth++; }
+    ~scoped_defeq_depth() { g_defeq_trace_depth--; }
+};
+
+// Extern C functions for calling from Lean
+extern "C" LEAN_EXPORT object * lean_kernel_enable_defeq_trace(uint8_t trace_expr, object *) {
+    enable_kernel_defeq_trace(trace_expr != 0);
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+extern "C" LEAN_EXPORT object * lean_kernel_disable_defeq_trace(object *) {
+    disable_kernel_defeq_trace();
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+extern "C" LEAN_EXPORT object * lean_kernel_set_defeq_trace_filter(object * n, object *) {
+    set_kernel_defeq_trace_filter(name(n, true));
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+extern "C" LEAN_EXPORT object * lean_kernel_clear_defeq_trace_filter(object *) {
+    clear_kernel_defeq_trace_filter();
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
 static name * g_kernel_fresh = nullptr;
 static expr * g_dont_care    = nullptr;
 static name * g_bool_true    = nullptr;
@@ -708,11 +794,21 @@ bool type_checker::is_def_eq_binding(expr t, expr s) {
 }
 
 bool type_checker::is_def_eq(level const & l1, level const & l2) {
-    if (is_equivalent(l1, l2)) {
+    if (l1 == l2) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq.level] " << indent_str() << "level structural eq: " << l1 << "\n";
+        }
         return true;
-    } else {
-        return false;
     }
+    level l1_norm = normalize(l1);
+    level l2_norm = normalize(l2);
+    bool result = (l1_norm == l2_norm);
+    if (should_trace_kernel_defeq()) {
+        std::cerr << "[Kernel.isDefEq.level] " << indent_str() << "level check: " << l1 << " =?= " << l2 << "\n";
+        std::cerr << "[Kernel.isDefEq.level] " << indent_str() << "  normalized: " << l1_norm << " =?= " << l2_norm << "\n";
+        std::cerr << "[Kernel.isDefEq.level] " << indent_str() << "  result: " << (result ? "equal" : "NOT EQUAL") << "\n";
+    }
+    return result;
 }
 
 bool type_checker::is_def_eq(levels const & ls1, levels const & ls2) {
@@ -1046,9 +1142,24 @@ bool type_checker::is_def_eq_unit_like(expr const & t, expr const & s) {
 
 bool type_checker::is_def_eq_core(expr const & t, expr const & s) {
     check_system("is_definitionally_equal", /* do_check_interrupted */ true);
+    scoped_defeq_depth depth_guard;
+
+    if (should_trace_kernel_defeq()) {
+        std::cerr << "[Kernel.isDefEq] " << indent_str() << "is_def_eq_core [depth=" << g_defeq_trace_depth << "]\n";
+        if (g_kernel_defeq_trace_expr) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "  LHS: " << t << "\n";
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "  RHS: " << s << "\n";
+        }
+    }
+
     bool use_hash = true;
     lbool r = quick_is_def_eq(t, s, use_hash);
-    if (r != l_undef) return r == l_true;
+    if (r != l_undef) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> quick_is_def_eq: " << (r == l_true ? "equal" : "not equal") << "\n";
+        }
+        return r == l_true;
+    }
 
     // Very basic support for proofs by reflection. If `t` has no free variables and `s` is `Bool.true`,
     // we fully reduce `t` and check whether result is `s`.
@@ -1056,6 +1167,9 @@ bool type_checker::is_def_eq_core(expr const & t, expr const & s) {
     // proof terms of the form `Eq.refl true : decide p = true`.
     if ((!has_fvar(t) || m_eager_reduce) && is_constant(s, *g_bool_true)) {
         if (is_constant(whnf(t), *g_bool_true)) {
+            if (should_trace_kernel_defeq()) {
+                std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> reflection: equal via whnf to Bool.true\n";
+            }
             return true;
         }
     }
@@ -1071,53 +1185,111 @@ bool type_checker::is_def_eq_core(expr const & t, expr const & s) {
     expr s_n = whnf_core(s, false, true);
 
     if (!is_eqp(t_n, t) || !is_eqp(s_n, s)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> whnf_core changed terms, retry quick_is_def_eq\n";
+        }
         r = quick_is_def_eq(t_n, s_n);
-        if (r != l_undef) return r == l_true;
+        if (r != l_undef) {
+            if (should_trace_kernel_defeq()) {
+                std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> quick_is_def_eq (post-whnf): " << (r == l_true ? "equal" : "not equal") << "\n";
+            }
+            return r == l_true;
+        }
     }
 
     r = is_def_eq_proof_irrel(t_n, s_n);
-    if (r != l_undef) return r == l_true;
+    if (r != l_undef) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> proof_irrel: " << (r == l_true ? "equal" : "not equal") << "\n";
+        }
+        return r == l_true;
+    }
 
     /* NB: `lazy_delta_reduction` updates `t_n` and `s_n` even when returning `l_undef`. */
     r = lazy_delta_reduction(t_n, s_n);
-    if (r != l_undef) return r == l_true;
+    if (r != l_undef) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> lazy_delta_reduction: " << (r == l_true ? "equal" : "not equal") << "\n";
+        }
+        return r == l_true;
+    }
 
     if (is_constant(t_n) && is_constant(s_n) && const_name(t_n) == const_name(s_n) &&
-        is_def_eq(const_levels(t_n), const_levels(s_n)))
+        is_def_eq(const_levels(t_n), const_levels(s_n))) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> const_eq: " << const_name(t_n) << " (levels matched)\n";
+        }
         return true;
+    }
 
-    if (is_fvar(t_n) && is_fvar(s_n) && fvar_name(t_n) == fvar_name(s_n))
+    if (is_fvar(t_n) && is_fvar(s_n) && fvar_name(t_n) == fvar_name(s_n)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> fvar_eq: " << fvar_name(t_n) << "\n";
+        }
         return true;
+    }
 
     if (is_proj(t_n) && is_proj(s_n) && proj_idx(t_n) == proj_idx(s_n)) {
         expr t_c = proj_expr(t_n);
         expr s_c = proj_expr(s_n);
-        if (lazy_delta_proj_reduction(t_c, s_c, proj_idx(t_n)))
+        if (lazy_delta_proj_reduction(t_c, s_c, proj_idx(t_n))) {
+            if (should_trace_kernel_defeq()) {
+                std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> proj_eq via lazy_delta_proj_reduction\n";
+            }
             return true;
+        }
     }
 
     // Invoke `whnf_core` again, but now using `whnf` to reduce projections.
     expr t_n_n = whnf_core(t_n);
     expr s_n_n = whnf_core(s_n);
-    if (!is_eqp(t_n_n, t_n) || !is_eqp(s_n_n, s_n))
+    if (!is_eqp(t_n_n, t_n) || !is_eqp(s_n_n, s_n)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> whnf_core (full) changed terms, recursing\n";
+        }
         return is_def_eq_core(t_n_n, s_n_n);
+    }
 
     // At this point, t_n and s_n are in weak head normal form (modulo metavariables and proof irrelevance)
-    if (is_def_eq_app(t_n, s_n))
+    if (is_def_eq_app(t_n, s_n)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> app_eq\n";
+        }
         return true;
+    }
 
-    if (try_eta_expansion(t_n, s_n))
+    if (try_eta_expansion(t_n, s_n)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> eta_expansion\n";
+        }
         return true;
+    }
 
-    if (try_eta_struct(t_n, s_n))
+    if (try_eta_struct(t_n, s_n)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> eta_struct\n";
+        }
         return true;
+    }
 
     r = try_string_lit_expansion(t_n, s_n);
-    if (r != l_undef) return r == l_true;
+    if (r != l_undef) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> string_lit_expansion: " << (r == l_true ? "equal" : "not equal") << "\n";
+        }
+        return r == l_true;
+    }
 
-    if (is_def_eq_unit_like(t_n, s_n))
+    if (is_def_eq_unit_like(t_n, s_n)) {
+        if (should_trace_kernel_defeq()) {
+            std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> unit_like\n";
+        }
         return true;
+    }
 
+    if (should_trace_kernel_defeq()) {
+        std::cerr << "[Kernel.isDefEq] " << indent_str() << "-> FAILED (no branch matched)\n";
+    }
     return false;
 }
 

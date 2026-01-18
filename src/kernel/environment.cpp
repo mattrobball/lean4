@@ -18,6 +18,16 @@ Author: Leonardo de Moura
 #include "kernel/quot.h"
 
 namespace lean {
+
+// Forward declarations for kernel defeq tracing
+void set_kernel_defeq_trace_decl(name const & n);
+void clear_kernel_defeq_trace_decl();
+
+// RAII helper to set current declaration name for tracing
+struct scoped_kernel_trace_decl {
+    scoped_kernel_trace_decl(name const & n) { set_kernel_defeq_trace_decl(n); }
+    ~scoped_kernel_trace_decl() { clear_kernel_defeq_trace_decl(); }
+};
 extern "C" object* lean_environment_add(object*, object*);
 extern "C" object* lean_environment_find(object*, object*);
 extern "C" object* lean_environment_mark_quot_init(object*);
@@ -159,6 +169,7 @@ environment environment::add_axiom(declaration const & d, bool check) const {
 
 environment environment::add_definition(declaration const & d, bool check) const {
     scoped_diagnostics diag(*this, check);
+    scoped_kernel_trace_decl trace_decl(d.to_definition_val().get_name());
     definition_val const & v = d.to_definition_val();
     if (v.is_unsafe()) {
         /* Meta definition can be recursive.
@@ -191,6 +202,7 @@ environment environment::add_definition(declaration const & d, bool check) const
 
 environment environment::add_theorem(declaration const & d, bool check) const {
     scoped_diagnostics diag(*this, check);
+    scoped_kernel_trace_decl trace_decl(d.to_theorem_val().get_name());
     theorem_val const & v = d.to_theorem_val();
     if (check) {
         type_checker checker(*this, diag.get());
@@ -210,6 +222,7 @@ environment environment::add_theorem(declaration const & d, bool check) const {
 
 environment environment::add_opaque(declaration const & d, bool check) const {
     scoped_diagnostics diag(*this, check);
+    scoped_kernel_trace_decl trace_decl(d.to_opaque_val().get_name());
     opaque_val const & v = d.to_opaque_val();
     if (check) {
         type_checker checker(*this, diag.get());
@@ -247,6 +260,7 @@ environment environment::add_mutual(declaration const & d, bool check) const {
     if (check) {
         type_checker checker(new_env, diag.get(), safety);
         for (definition_val const & v : vs) {
+            scoped_kernel_trace_decl trace_decl(v.get_name());
             check_no_metavar_no_fvar(new_env, v.get_name(), v.get_value());
             expr val_type = checker.check(v.get_value(), v.get_lparams());
             if (!checker.is_def_eq(val_type, v.get_type()))
