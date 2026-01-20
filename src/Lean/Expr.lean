@@ -2378,4 +2378,29 @@ def eagerReflBoolTrue : Expr :=
 def eagerReflBoolFalse : Expr :=
   mkApp2 (mkConst ``eagerReduce [0]) (mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) (mkConst ``Bool.false) (mkConst ``Bool.false)) reflBoolFalse
 
+/--
+Checks if two expressions are equal modulo normalization of universe levels.
+This is a stronger check than pointer equality but weaker than full definitional equality,
+treating expressions as equal if they differ only in how their universe levels are represented
+(e.g., `max u v` vs `max v u`).
+-/
+partial def Expr.eqvNormLevels (a b : Expr) : Bool :=
+  if ptrEq a b then true
+  else match a, b with
+    | bvar i,     bvar j     => i == j
+    | fvar n₁,    fvar n₂    => n₁ == n₂
+    | mvar n₁,    mvar n₂    => n₁ == n₂
+    | sort u₁,    sort u₂    => u₁.normalize == u₂.normalize
+    | const n₁ us₁, const n₂ us₂ =>
+        n₁ == n₂ && us₁.map (·.normalize) == us₂.map (·.normalize)
+    | app f₁ a₁,  app f₂ a₂  => f₁.eqvNormLevels f₂ && a₁.eqvNormLevels a₂
+    | lam _ d₁ b₁ _, lam _ d₂ b₂ _ => d₁.eqvNormLevels d₂ && b₁.eqvNormLevels b₂
+    | forallE _ d₁ b₁ _, forallE _ d₂ b₂ _ => d₁.eqvNormLevels d₂ && b₁.eqvNormLevels b₂
+    | letE _ t₁ v₁ b₁ _, letE _ t₂ v₂ b₂ _ =>
+        t₁.eqvNormLevels t₂ && v₁.eqvNormLevels v₂ && b₁.eqvNormLevels b₂
+    | lit v₁,     lit v₂     => v₁ == v₂
+    | mdata _ e₁, mdata _ e₂ => e₁.eqvNormLevels e₂
+    | proj n₁ i₁ e₁, proj n₂ i₂ e₂ => n₁ == n₂ && i₁ == i₂ && e₁.eqvNormLevels e₂
+    | _, _ => false
+
 end Lean
