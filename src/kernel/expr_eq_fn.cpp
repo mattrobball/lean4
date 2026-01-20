@@ -65,7 +65,7 @@ class expr_eq_fn {
         case expr_kind::MVar: return mvar_name(a) == mvar_name(b);
         case expr_kind::FVar: return fvar_name(a) == fvar_name(b);
         case expr_kind::Sort:
-            if constexpr (NormalizeLevels)
+            if (NormalizeLevels)
                 return is_equivalent(sort_level(a), sort_level(b));
             else
                 return sort_level(a) == sort_level(b);
@@ -100,7 +100,7 @@ class expr_eq_fn {
                 proj_sname(a) == proj_sname(b) &&
                 proj_idx(a) == proj_idx(b);
         case expr_kind::Const:
-            if constexpr (NormalizeLevels)
+            if (NormalizeLevels)
                 return
                     const_name(a) == const_name(b) &&
                     compare(const_levels(a), const_levels(b), [](level const & l1, level const & l2) { return is_equivalent(l1, l2); });
