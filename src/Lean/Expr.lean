@@ -783,6 +783,14 @@ Binder annotations are ignored.
 @[extern "lean_expr_eqv"]
 opaque eqv (a : @& Expr) (b : @& Expr) : Bool
 
+/--
+Return true iff `a` and `b` are alpha equivalent, where universe levels
+are compared after normalization using `Level.isEquiv`.
+Binder annotations are ignored.
+-/
+@[extern "lean_expr_eqv_normalize_levels"]
+opaque eqvNormalizeLevels (a : @& Expr) (b : @& Expr) : Bool
+
 instance : BEq Expr where
   beq := Expr.eqv
 

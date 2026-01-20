@@ -1704,7 +1704,7 @@ private partial def isDefEqQuickOther (t s : Expr) : MetaM LBool := do
     isDefEqQuick t s
   else if let some s := patternAnnotation? s then
     isDefEqQuick t s
-  else if t == s then
+  else if t.eqvNormalizeLevels s then
     return LBool.true
   else if etaEq t s || etaEq s t then
     return LBool.true  -- t =?= (fun xs => t xs)

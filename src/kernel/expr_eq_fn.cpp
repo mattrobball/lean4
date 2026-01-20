@@ -11,15 +11,19 @@ Author: Leonardo de Moura
 #include "runtime/thread.h"
 #include "kernel/expr.h"
 #include "kernel/expr_sets.h"
+#include "kernel/level.h"
 
 namespace lean {
 /**
 \brief Functional object for comparing expressions.
 
 Remark if CompareBinderInfo is true, then functional object will also compare
-binder information attached to lambda and Pi expressions
+binder information attached to lambda and Pi expressions.
+
+If NormalizeLevels is true, then universe levels are compared after normalization
+using is_equivalent instead of ==.
 */
-template<bool CompareBinderInfo>
+template<bool CompareBinderInfo, bool NormalizeLevels = false>
 class expr_eq_fn {
     struct key_hasher {
         std::size_t operator()(std::pair<lean_object *, lean_object *> const & p) const {
@@ -60,7 +64,11 @@ class expr_eq_fn {
         case expr_kind::Lit:  return lit_value(a) == lit_value(b);
         case expr_kind::MVar: return mvar_name(a) == mvar_name(b);
         case expr_kind::FVar: return fvar_name(a) == fvar_name(b);
-        case expr_kind::Sort: return sort_level(a) == sort_level(b);
+        case expr_kind::Sort:
+            if constexpr (NormalizeLevels)
+                return is_equivalent(sort_level(a), sort_level(b));
+            else
+                return sort_level(a) == sort_level(b);
         default: break;
         }
         if (root) {
@@ -92,9 +100,14 @@ class expr_eq_fn {
                 proj_sname(a) == proj_sname(b) &&
                 proj_idx(a) == proj_idx(b);
         case expr_kind::Const:
-            return
-                const_name(a) == const_name(b) &&
-                compare(const_levels(a), const_levels(b), [](level const & l1, level const & l2) { return l1 == l2; });
+            if constexpr (NormalizeLevels)
+                return
+                    const_name(a) == const_name(b) &&
+                    compare(const_levels(a), const_levels(b), [](level const & l1, level const & l2) { return is_equivalent(l1, l2); });
+            else
+                return
+                    const_name(a) == const_name(b) &&
+                    compare(const_levels(a), const_levels(b), [](level const & l1, level const & l2) { return l1 == l2; });
         case expr_kind::App: {
             check_system(depth);
             if (!apply(app_arg(a), app_arg(b), depth)) return false;
@@ -149,5 +162,9 @@ extern "C" LEAN_EXPORT uint8 lean_expr_eqv(b_obj_arg a, b_obj_arg b) {
 
 extern "C" LEAN_EXPORT uint8 lean_expr_equal(b_obj_arg a, b_obj_arg b) {
     return expr_eq_fn<true>()(TO_REF(expr, a), TO_REF(expr, b));
+}
+
+extern "C" LEAN_EXPORT uint8 lean_expr_eqv_normalize_levels(b_obj_arg a, b_obj_arg b) {
+    return expr_eq_fn<false, true>()(TO_REF(expr, a), TO_REF(expr, b));
 }
 }
