@@ -1270,6 +1270,8 @@ private abbrev unfold (e : Expr) (failK : MetaM α) (successK : Expr → MetaM �
 
 /-- Auxiliary method for isDefEqDelta -/
 private def unfoldBothDefEq (fn : Name) (t s : Expr) : MetaM LBool := do
+  if t.eqvNormLevels s then
+    return .true
   match t, s with
   | Expr.const _ ls₁, Expr.const _ ls₂ => isListLevelDefEq ls₁ ls₂
   | Expr.app _ _,     Expr.app _ _     =>
