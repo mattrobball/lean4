@@ -1371,6 +1371,10 @@ private abbrev unfold (e : Expr) (failK : MetaM α) (successK : Expr → MetaM �
 
 /-- Auxiliary method for isDefEqDelta -/
 private def unfoldBothDefEq (fn : Name) (t s : Expr) : MetaM LBool := do
+  /- Early exit if `t` and `s` are structurally equal up to universe level normalization,
+     before doing more expensive unfolding and decomposition. -/
+  if t.eqvNormLevels s then
+    return .true
   match t, s with
   | .const _ ls₁, .const _ ls₂ =>
     match (← isListLevelDefEq ls₁ ls₂) with
