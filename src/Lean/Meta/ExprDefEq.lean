@@ -1268,8 +1268,17 @@ private abbrev unfold (e : Expr) (failK : MetaM α) (successK : Expr → MetaM �
   | some e => successK e
   | none   => failK
 
+/-- Check if two level lists are equivalent by normalizing them. -/
+private def eqvNormLevels : List Level → List Level → Bool
+  | [], [] => true
+  | u :: us, v :: vs => u.isEquiv v && eqvNormLevels us vs
+  | _, _ => false
+
 /-- Auxiliary method for isDefEqDelta -/
 private def unfoldBothDefEq (fn : Name) (t s : Expr) : MetaM LBool := do
+  if let (Expr.const _ ls₁, Expr.const _ ls₂) := (t, s) then
+    if eqvNormLevels ls₁ ls₂ then
+      return .true
   match t, s with
   | Expr.const _ ls₁, Expr.const _ ls₂ => isListLevelDefEq ls₁ ls₂
   | Expr.app _ _,     Expr.app _ _     =>
