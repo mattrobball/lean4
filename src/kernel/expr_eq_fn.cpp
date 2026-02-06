@@ -11,6 +11,7 @@ Author: Leonardo de Moura
 #include "runtime/thread.h"
 #include "kernel/expr.h"
 #include "kernel/expr_sets.h"
+#include "kernel/level.h"
 #include "util/alloc.h"
 
 namespace lean {
@@ -18,9 +19,12 @@ namespace lean {
 \brief Functional object for comparing expressions.
 
 Remark if CompareBinderInfo is true, then functional object will also compare
-binder information attached to lambda and Pi expressions
+binder information attached to lambda and Pi expressions.
+
+If EquivLevels is true, universe levels are compared using is_equivalent
+(which normalizes levels) instead of ==.
 */
-template<bool CompareBinderInfo>
+template<bool CompareBinderInfo, bool EquivLevels = false>
 class expr_eq_fn {
     struct key_hasher {
         std::size_t operator()(std::pair<lean_object *, lean_object *> const & p) const {
@@ -52,16 +56,24 @@ class expr_eq_fn {
                 throw stack_space_exception("expression equality test");
         }
     }
+
+    bool compare_levels(level const & l1, level const & l2) {
+        if (l1 == l2) return true;
+        if (EquivLevels && (l1.is_max() || l2.is_max() || l1.is_imax() || l2.is_imax()))
+            return is_equivalent(l1, l2);
+        return false;
+    }
+
     bool apply(expr const & a, expr const & b, unsigned depth, bool root = false) {
         if (is_eqp(a, b))          return true;
-        if (hash(a) != hash(b))    return false;
+        if (!EquivLevels && hash(a) != hash(b)) return false;
         if (a.kind() != b.kind())  return false;
         switch (a.kind()) {
         case expr_kind::BVar: return bvar_idx(a) == bvar_idx(b);
         case expr_kind::Lit:  return lit_value(a) == lit_value(b);
         case expr_kind::MVar: return mvar_name(a) == mvar_name(b);
         case expr_kind::FVar: return fvar_name(a) == fvar_name(b);
-        case expr_kind::Sort: return sort_level(a) == sort_level(b);
+        case expr_kind::Sort: return compare_levels(sort_level(a), sort_level(b));
         default: break;
         }
         if (root) {
@@ -95,7 +107,7 @@ class expr_eq_fn {
         case expr_kind::Const:
             return
                 const_name(a) == const_name(b) &&
-                compare(const_levels(a), const_levels(b), [](level const & l1, level const & l2) { return l1 == l2; });
+                compare(const_levels(a), const_levels(b), [this](level const & l1, level const & l2) { return compare_levels(l1, l2); });
         case expr_kind::App: {
             check_system(depth);
             if (!apply(app_arg(a), app_arg(b), depth)) return false;
@@ -143,6 +155,9 @@ bool is_equal(expr const & a, expr const & b) {
 bool is_bi_equal(expr const & a, expr const & b) {
     return expr_eq_fn<true>()(a, b);
 }
+bool is_equal_mod_levels(expr const & a, expr const & b) {
+    return expr_eq_fn<false, true>()(a, b);
+}
 
 extern "C" LEAN_EXPORT uint8 lean_expr_eqv(b_obj_arg a, b_obj_arg b) {
     return expr_eq_fn<false>()(TO_REF(expr, a), TO_REF(expr, b));
@@ -150,5 +165,9 @@ extern "C" LEAN_EXPORT uint8 lean_expr_eqv(b_obj_arg a, b_obj_arg b) {
 
 extern "C" LEAN_EXPORT uint8 lean_expr_equal(b_obj_arg a, b_obj_arg b) {
     return expr_eq_fn<true>()(TO_REF(expr, a), TO_REF(expr, b));
+}
+
+extern "C" LEAN_EXPORT uint8 lean_expr_eqv_mod_levels(b_obj_arg a, b_obj_arg b) {
+    return expr_eq_fn<false, true>()(TO_REF(expr, a), TO_REF(expr, b));
 }
 }

@@ -20,6 +20,9 @@ inline bool operator!=(expr const & a, expr const & b) { return !operator==(a, b
 bool is_bi_equal(expr const & a, expr const & b);
 struct is_bi_equal_proc { bool operator()(expr const & e1, expr const & e2) const { return is_bi_equal(e1, e2); } };
 
+/** \brief Like is_equal, but universe levels are compared using is_equivalent (normalization) instead of == */
+bool is_equal_mod_levels(expr const & a, expr const & b);
+
 /** Similar to is_bi_equal_proc, but it has a flag that allows us to switch select == or is_bi_equal */
 struct is_cond_bi_equal_proc {
     bool m_use_bi;
