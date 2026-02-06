@@ -791,6 +791,14 @@ Binder annotations are ignored.
 @[extern "lean_expr_eqv"]
 opaque eqv (a : @& Expr) (b : @& Expr) : Bool
 
+/--
+Return true iff `a` and `b` are alpha equivalent, where universe levels
+are compared using normalization (e.g., `max u v` is equivalent to `max v u`).
+Binder annotations are ignored.
+-/
+@[extern "lean_expr_eqv_mod_levels"]
+opaque eqvModLevels (a : @& Expr) (b : @& Expr) : Bool
+
 instance : BEq Expr where
   beq := Expr.eqv
 
