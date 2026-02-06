@@ -282,19 +282,15 @@ jobs:
       - uses: actions/download-artifact@v6
         with:
           path: artifacts
+          merge-multiple: true
       - name: Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         with:
-          files: artifacts/*/*
+          files: artifacts/*
           fail_on_unmatched_files: true
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') || contains(github.ref, '-rc') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update release.lean-lang.org
-        run: |
-          gh workflow -R leanprover/release-index run update-index.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_INDEX_TOKEN }}
 
   # This job creates nightly releases during the cron job.
   # It is responsible for creating the tag, and automatically generating a changelog.
