@@ -19,6 +19,7 @@ Author: Leonardo de Moura
 #include "kernel/for_each_fn.h"
 #include "kernel/quot.h"
 #include "kernel/inductive.h"
+#include "kernel/expr_eq_fn.h"
 
 namespace lean {
 static name * g_kernel_fresh = nullptr;
@@ -741,6 +742,8 @@ bool type_checker::is_def_eq(levels const & ls1, levels const & ls2) {
 /** \brief This is an auxiliary method for is_def_eq. It handles the "easy cases". */
 lbool type_checker::quick_is_def_eq(expr const & t, expr const & s, bool use_hash) {
     if (m_st->m_eqv_manager.is_equiv(t, s, use_hash))
+        return l_true;
+    if (is_equal_mod_levels(t, s))
         return l_true;
     if (t.kind() == s.kind()) {
         switch (t.kind()) {
